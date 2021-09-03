@@ -74,4 +74,20 @@ class GitHub_API():
             if len(json_data) < 100 :
                 break
         return repo_list
-    
+        
+    def get_repo(self, github_id, repo_name) :
+        json_data = self.get(f'repos/{github_id}/{repo_name}')
+        repo = {
+            'type': 'repo',
+            'github_id': json_data['owner']['login'], 
+            'repo_name': json_data['name']
+        }
+        repo['stargazers_count'] = json_data['stargazers_count']
+        repo['forks_count'] = json_data['forks_count']
+        repo['watchers'] = None if not 'subscribers_count' in json_data else json_data['subscribers_count']
+        repo['create_date'] = json_data['created_at']
+        repo['update_date'] = json_data['updated_at']
+        repo['language'] = json_data['language']
+        repo['proj_short_desc'] = not json_data['description'] is None
+        repo['license'] = None if json_data['license'] is None else json_data['license']['name']
+        return repo
