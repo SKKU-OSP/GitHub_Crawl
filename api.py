@@ -90,4 +90,15 @@ class GitHub_API():
         repo['language'] = json_data['language']
         repo['proj_short_desc'] = not json_data['description'] is None
         repo['license'] = None if json_data['license'] is None else json_data['license']['name']
+        
+        repo['release_ver'] = None
+        repo['release_count'] = 0
+        release_data = self.get(f'repos/{github_id}/{repo_name}/releases')
+        if len(release_data) > 0 :
+            repo['release_ver'] = release_data[0]['name']
+            while True :
+                repo['release_count'] += len(release_data)
+                if len(release_data) < 100 :
+                    break
+
         return repo
