@@ -35,7 +35,7 @@ class GitHub_API():
                 params={'page': page, 'per_page': per_page},
                 headers=self.auth)
         if res.status_code != 200 :
-            raise GitHubException()
+            raise GitHubException(f'Error: status code {res.status_code}')
         return res.json()
 
     def get_user(self, github_id) :
