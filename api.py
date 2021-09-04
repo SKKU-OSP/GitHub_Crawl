@@ -1,6 +1,4 @@
-import json
 import requests
-from configure import OAUTH_TOKEN
 from datetime import datetime
 from bs4 import BeautifulSoup
 
