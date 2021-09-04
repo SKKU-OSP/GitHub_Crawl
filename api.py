@@ -101,4 +101,20 @@ class GitHub_API():
                 if len(release_data) < 100 :
                     break
 
+        repo['contributors'] = 0
+        try :
+            contributor_data = self.get(f'repos/{github_id}/{repo_name}/contributors')
+            while True :
+                repo['contributors'] += len(contributor_data)
+                if len(contributor_data) < 100 :
+                    break
+        except GitHubException :
+            repo['contributors'] = 999
+
+        repo['readme'] = 0
+        content_data = self.get(f'repos/{github_id}/{repo_name}/contents')
+        for content in content_data:
+            if 'readme' in content['name'] or 'README' in content['name']:
+                repo['readme'] = content['size']
+
         return repo
