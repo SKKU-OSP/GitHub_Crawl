@@ -72,4 +72,47 @@ class GitHub_API():
             if len(json_data) < 100 :
                 break
         return repo_list
-    
+        
+    def get_repo(self, github_id, repo_name) :
+        json_data = self.get(f'repos/{github_id}/{repo_name}')
+        repo = {
+            'type': 'repo',
+            'github_id': json_data['owner']['login'], 
+            'repo_name': json_data['name']
+        }
+        repo['stargazers_count'] = json_data['stargazers_count']
+        repo['forks_count'] = json_data['forks_count']
+        repo['watchers'] = None if not 'subscribers_count' in json_data else json_data['subscribers_count']
+        repo['create_date'] = json_data['created_at']
+        repo['update_date'] = json_data['updated_at']
+        repo['language'] = json_data['language']
+        repo['proj_short_desc'] = not json_data['description'] is None
+        repo['license'] = None if json_data['license'] is None else json_data['license']['name']
+        
+        repo['release_ver'] = None
+        repo['release_count'] = 0
+        release_data = self.get(f'repos/{github_id}/{repo_name}/releases')
+        if len(release_data) > 0 :
+            repo['release_ver'] = release_data[0]['name']
+            while True :
+                repo['release_count'] += len(release_data)
+                if len(release_data) < 100 :
+                    break
+
+        repo['contributors'] = 0
+        try :
+            contributor_data = self.get(f'repos/{github_id}/{repo_name}/contributors')
+            while True :
+                repo['contributors'] += len(contributor_data)
+                if len(contributor_data) < 100 :
+                    break
+        except GitHubException :
+            repo['contributors'] = 999
+
+        repo['readme'] = 0
+        content_data = self.get(f'repos/{github_id}/{repo_name}/contents')
+        for content in content_data:
+            if 'readme' in content['name'] or 'README' in content['name']:
+                repo['readme'] = content['size']
+
+        return repo
