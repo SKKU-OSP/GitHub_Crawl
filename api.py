@@ -29,7 +29,7 @@ class GitHub_API():
         limit['used'] = res.headers['X-RateLimit-Used']
         return limit
 
-    def get(self, endpoint, page=1, per_page=100) :
+    def get_json(self, endpoint, page=1, per_page=100) :
         res = requests.get(
                 f'{GITHUB_API_URL}{endpoint}', 
                 params={'page': page, 'per_page': per_page},
@@ -38,8 +38,13 @@ class GitHub_API():
             raise GitHubException(f'Error: status code {res.status_code}')
         return res.json()
 
+    def get_soup(self, endpoint) :
+        res = requests.get(f'http://github.com/{endpoint}')
+        soup = BeautifulSoup(res.text, 'html.parser')
+        return soup
+
     def get_user(self, github_id) :
-        json_data = self.get(f'users/{github_id}')
+        json_data = self.get_json(f'users/{github_id}')
         data = {'type':'user'}
         data['github_id'] = github_id
         data['followers'] = json_data['followers']
@@ -47,8 +52,7 @@ class GitHub_API():
         data['total_of_repos'] = json_data['public_repos']
 
         # Highlights and Achievements
-        res = requests.get(f'http://github.com/{github_id}')
-        soup = BeautifulSoup(res.text, 'html.parser')
+        soup = self.get_soup(github_id)
         info_list = [tag.parent for tag in soup.select('h2.h4.mb-2')]
         
         for info in info_list :
@@ -66,7 +70,7 @@ class GitHub_API():
     def get_repos_of_user(self, github_id) :
         repo_list = []
         while True:
-            json_data = self.get(f'users/{github_id}/repos', page=1)
+            json_data = self.get_json(f'users/{github_id}/repos', page=1)
             for repo_data in json_data:
                 repo_list.append(repo_data['name'])
             if len(json_data) < 100 :
@@ -74,7 +78,7 @@ class GitHub_API():
         return repo_list
         
     def get_repo(self, github_id, repo_name) :
-        json_data = self.get(f'repos/{github_id}/{repo_name}')
+        json_data = self.get_json(f'repos/{github_id}/{repo_name}')
         repo = {
             'type': 'repo',
             'github_id': json_data['owner']['login'], 
@@ -91,7 +95,7 @@ class GitHub_API():
         
         repo['release_ver'] = None
         repo['release_count'] = 0
-        release_data = self.get(f'repos/{github_id}/{repo_name}/releases')
+        release_data = self.get_json(f'repos/{github_id}/{repo_name}/releases')
         if len(release_data) > 0 :
             repo['release_ver'] = release_data[0]['name']
             while True :
@@ -101,7 +105,7 @@ class GitHub_API():
 
         repo['contributors'] = 0
         try :
-            contributor_data = self.get(f'repos/{github_id}/{repo_name}/contributors')
+            contributor_data = self.get_json(f'repos/{github_id}/{repo_name}/contributors')
             while True :
                 repo['contributors'] += len(contributor_data)
                 if len(contributor_data) < 100 :
@@ -110,7 +114,7 @@ class GitHub_API():
             repo['contributors'] = 999
 
         repo['readme'] = 0
-        content_data = self.get(f'repos/{github_id}/{repo_name}/contents')
+        content_data = self.get_json(f'repos/{github_id}/{repo_name}/contents')
         for content in content_data:
             if 'readme' in content['name'] or 'README' in content['name']:
                 repo['readme'] = content['size']
