@@ -69,12 +69,14 @@ class GitHub_API():
     
     def get_repos_of_user(self, github_id) :
         repo_list = []
+        page = 1
         while True:
-            json_data = self.get_json(f'users/{github_id}/repos', page=1)
+            json_data = self.get_json(f'users/{github_id}/repos', page)
             for repo_data in json_data:
                 repo_list.append(repo_data['name'])
             if len(json_data) < 100 :
                 break
+            page += 1
         return repo_list
         
     def get_repo(self, github_id, repo_name) :
@@ -98,18 +100,24 @@ class GitHub_API():
         release_data = self.get_json(f'repos/{github_id}/{repo_name}/releases')
         if len(release_data) > 0 :
             repo['release_ver'] = release_data[0]['name']
+            page = 1
             while True :
                 repo['release_count'] += len(release_data)
                 if len(release_data) < 100 :
                     break
+                page += 1
+                release_data = self.get_json(f'repos/{github_id}/{repo_name}/releases', page)
 
         repo['contributors'] = 0
         try :
-            contributor_data = self.get_json(f'repos/{github_id}/{repo_name}/contributors')
+            contributor_data = self.get_json(f'repos/{github_id}/{repo_name}/contributors', page=1)
+            page = 1
             while True :
                 repo['contributors'] += len(contributor_data)
                 if len(contributor_data) < 100 :
                     break
+                page += 1
+                contributor_data = self.get_json(f'repos/{github_id}/{repo_name}/contributors', page)
         except GitHubException :
             repo['contributors'] = 999
 
