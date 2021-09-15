@@ -1,8 +1,9 @@
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 
 GITHUB_API_URL = 'https://api.github.com/'
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36 Edg/93.0.961.47'
 
 class GitHubException(Exception) :
     def __init__(self, message):
@@ -18,6 +19,11 @@ class GitHub_API():
         res = requests.get(GITHUB_API_URL, headers=self.auth)
         if res.status_code != 200 :
             raise GitHubException(f'Error in Authentication: status code {res.status_code} / {res.json()["message"]}')
+
+    def __end_of_month(self, now: datetime) :
+        next_month = now.month % 12 + 1
+        next_year = now.year + now.month // 12
+        return datetime(next_year, next_month, 1) - timedelta(seconds=1)
 
     def check_quota(self):
         res = requests.get(GITHUB_API_URL, headers=self.auth)
@@ -67,6 +73,103 @@ class GitHub_API():
 
         return data
     
+    def get_user_period(self, github_id, start_yymm, end_yymm) :
+        start_date = datetime.strptime(start_yymm, '%y%m')
+        end_date = self.__end_of_month(datetime.strptime(end_yymm, '%y%m'))
+        stats = {}
+        stats['github_id'] = github_id
+        stats['start_yymm'] = start_yymm
+        stats['end_yymm'] = end_yymm
+        stats['stars'] = 0
+        stats['num_of_commits'] = 0
+        stats['num_of_prs'] = 0
+        stats['num_of_issues'] = 0
+        stats['num_of_cr_repos'] = 0
+        contributed_repo = set()
+        page = 1
+        while True:
+            json_data = self.get_json(f'users/{github_id}/events', page)
+            for event in json_data:
+                event_date = datetime.fromisoformat(event['created_at'][:-1])
+                if event_date < start_date or event_date > end_date :
+                    continue
+                if event['type'] == 'CreateEvent' :
+                    if event['payload']['ref_type'] == 'repository':
+                        stats['num_of_cr_repos'] += 1
+                if event['type'] == 'WatchEvent' :
+                    stats['stars'] += 1
+                if event['type'] == 'PushEvent' :
+                    repo_name = event['repo']['name']
+                    if repo_name[:repo_name.find('/')] != github_id :
+                        contributed_repo.add(repo_name)
+                    stats['num_of_commits'] += event['payload']['size']
+                if event['type'] == 'IssuesEvent' :
+                    stats['num_of_issues'] += 1
+                if event['type'] == 'PullRequestEvent' :
+                    stats['num_of_prs'] += 1
+            if len(json_data) < 100 :
+                break
+            page += 1
+        stats['num_of_co_repos'] = len(contributed_repo)
+        return stats
+
+    def get_user_period_old(self, github_id, start_yymm, end_yymm) :
+        start_date = datetime.strptime(start_yymm, '%y%m')
+        end_date = self.__end_of_month(datetime.strptime(end_yymm, '%y%m'))
+        stats = {}
+        stats['github_id'] = github_id
+        stats['start_yymm'] = start_yymm
+        stats['end_yymm'] = end_yymm
+        stats['stars'] = 0
+        stats['num_of_commits'] = 0
+        stats['num_of_prs'] = 0
+        stats['num_of_issues'] = 0
+        stats['num_of_cr_repos'] = 0
+        contributed_repo = set()
+        
+        pivot_date = start_date
+        while pivot_date < end_date :
+            from_date = pivot_date.strftime('%Y-%m-%d')
+            to_date = self.__end_of_month(pivot_date).strftime('%Y-%m-%d')
+            soup = self.get_soup(f'{github_id}/?tab=overview&from={from_date}&to={to_date}')
+            for event in soup.select('.TimelineItem-body'):
+                summary = event.select_one('summary')
+                if summary == None :
+                    continue
+
+                summary = summary.text.strip().split()
+                if summary[0] == 'Created':
+                    # Create Commit
+                    if summary[2] == 'commit' or summary[2] == 'commits':
+                        commit_list = event.select('li')
+                        for commit in commit_list :
+                            detail = commit.select('a')
+                            repo = detail[0].text
+                            commit_cnt = int(detail[1].text.strip().split()[0])
+                            stats['num_of_commits'] += commit_cnt
+                            if repo.split('/')[0] != github_id :
+                                contributed_repo.add(repo)
+                    # Create Repository
+                    elif summary[2] == 'repository' or summary[2] == 'repositories':
+                        repo_list = event.select('li')
+                        for repo in repo_list:
+                            stats['num_of_cr_repos'] += 1
+                elif summary[0] == 'Opened' :
+                    # Open Issues
+                    if 'issue' in summary or 'issues' in summary :
+                        issue_list = event.select('li')
+                        for issue in issue_list:
+                            stats['num_of_issues'] += 1
+                    # Open Pull Requests
+                    elif 'request' in summary or 'requests' in summary :
+                        pr_list = event.select('li')
+                        for pr in pr_list:
+                            stats['num_of_prs'] += 1
+                        pass
+            pivot_date = self.__end_of_month(pivot_date) + timedelta(days=1)
+            
+        return stats
+
     def get_repos_of_user(self, github_id) :
         repo_list = []
         page = 1
