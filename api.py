@@ -76,7 +76,7 @@ class GitHub_API():
     def get_user_period(self, github_id, start_yymm, end_yymm) :
         start_date = datetime.strptime(start_yymm, '%y%m')
         end_date = self.__end_of_month(datetime.strptime(end_yymm, '%y%m'))
-        stats = {}
+        stats = {'type':'user_period'}
         stats['github_id'] = github_id
         stats['start_yymm'] = start_yymm
         stats['end_yymm'] = end_yymm
@@ -116,7 +116,7 @@ class GitHub_API():
     def get_user_period_old(self, github_id, start_yymm, end_yymm) :
         start_date = datetime.strptime(start_yymm, '%y%m')
         end_date = self.__end_of_month(datetime.strptime(end_yymm, '%y%m'))
-        stats = {}
+        stats = {'type':'user_period'}
         stats['github_id'] = github_id
         stats['start_yymm'] = start_yymm
         stats['end_yymm'] = end_yymm
@@ -229,5 +229,30 @@ class GitHub_API():
         for content in content_data:
             if 'readme' in content['name'] or 'README' in content['name']:
                 repo['readme'] = content['size']
+
+        repo['commits_count'] = 0
+        page = 1
+        commit_list = self.get_json(f'repos/{github_id}/{repo_name}/commits')
+        code_freq = [0, 0]
+        while len(commit_list) > 0 :
+            repo['commits_count'] += len(commit_list)
+            for commit in commit_list :
+                stat = self.get_json(f'repos/{github_id}/{repo_name}/commits/{commit["sha"]}')
+                code_freq[0] += stat['stats']['additions']
+                code_freq[1] += stat['stats']['deletions']
+            page += 1
+            commit_list = self.get_json(f'repos/{github_id}/{repo_name}/commits', page)
+        repo['code_freqs'] = sum(code_freq)
+
+        soup = self.get_soup(f'{github_id}/{repo_name}/pulls')
+        prs_cnt = soup.select_one('a[data-ga-click="Pull Requests, Table state, Open"]').parent
+        prs_cnt = [x.text.strip().split() for x in prs_cnt.select('a')]
+        repo['prs_counts'] = int(prs_cnt[0][0]) + int(prs_cnt[1][0])
+
+        soup = self.get_soup(f'{github_id}/{repo_name}/issues')
+        issue_cnt = soup.select_one('a[data-ga-click="Issues, Table state, Open"]').parent
+        issue_cnt = [x.text.strip().split() for x in issue_cnt.select('a')]
+        repo['open_issue_count'] = int(issue_cnt[0][0])
+        repo['close_issue_count'] = int(issue_cnt[1][0])
 
         return repo
