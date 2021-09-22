@@ -4,6 +4,31 @@ from bs4 import BeautifulSoup
 
 GITHUB_API_URL = 'https://api.github.com/'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36 Edg/93.0.961.47'
+TYPE_DEFINE = {
+    'user': [
+        'github_id', 'followers', 'following', 
+        'total_of_repos', 'highlights', 'achievements'
+    ],
+    'user_period': [
+        'github_id', 'start_yymm', 'end_yymm', 'stars', 
+        'num_of_commits', 'num_of_prs', 'num_of_issues',
+        'num_of_cr_repos'
+    ],
+    'repo': [
+        'github_id', 'repo_name', 'stargazers_count', 'forks_count',
+        'watchers', 'create_date', 'update_date', 'language', 
+        'proj_short_desc', 'license', 'release_ver', 'release_count',
+        'contributors', 'readme', 'commits_count', 'prs_count', 
+        'open_issue_count', 'close_issue_count'
+    ],
+    'repo_period': [
+        'github_id', 'repo_name', 'start_yymm', 'end_yymm',
+        'stargazer_count', 'forks_count', 'commits_count',
+        'prs_count', 'open_issue_count', 'close_issue_count',
+        'watchers_count', 'update_date', 'update_count',
+        'contributors_count', 'release_ver', 'release_count'
+    ]
+}
 
 class GitHubException(Exception) :
     def __init__(self, message):
@@ -24,6 +49,11 @@ class GitHub_API():
         next_month = now.month % 12 + 1
         next_year = now.year + now.month // 12
         return datetime(next_year, next_month, 1) - timedelta(seconds=1)
+
+    def __data_init(self, type) :
+        data = dict.fromkeys(TYPE_DEFINE[type], 0)
+        data['type'] = type
+        return data
 
     def check_quota(self):
         res = requests.get(GITHUB_API_URL, headers=self.auth)
@@ -51,7 +81,7 @@ class GitHub_API():
 
     def get_user(self, github_id) :
         json_data = self.get_json(f'users/{github_id}')
-        data = {'type':'user'}
+        data = self.__data_init('user')
         data['github_id'] = github_id
         data['followers'] = json_data['followers']
         data['following'] = json_data['following']
@@ -76,15 +106,11 @@ class GitHub_API():
     def get_user_period(self, github_id, start_yymm, end_yymm) :
         start_date = datetime.strptime(start_yymm, '%y%m')
         end_date = self.__end_of_month(datetime.strptime(end_yymm, '%y%m'))
-        stats = {'type':'user_period'}
+        stats = self.__data_init('user_period')
         stats['github_id'] = github_id
         stats['start_yymm'] = start_yymm
         stats['end_yymm'] = end_yymm
-        stats['stars'] = 0
-        stats['num_of_commits'] = 0
-        stats['num_of_prs'] = 0
-        stats['num_of_issues'] = 0
-        stats['num_of_cr_repos'] = 0
+
         contributed_repo = set()
         page = 1
         while True:
@@ -116,15 +142,10 @@ class GitHub_API():
     def get_user_period_old(self, github_id, start_yymm, end_yymm) :
         start_date = datetime.strptime(start_yymm, '%y%m')
         end_date = self.__end_of_month(datetime.strptime(end_yymm, '%y%m'))
-        stats = {'type':'user_period'}
+        stats = self.__data_init('user_period')
         stats['github_id'] = github_id
         stats['start_yymm'] = start_yymm
         stats['end_yymm'] = end_yymm
-        stats['stars'] = 0
-        stats['num_of_commits'] = 0
-        stats['num_of_prs'] = 0
-        stats['num_of_issues'] = 0
-        stats['num_of_cr_repos'] = 0
         contributed_repo = set()
         
         pivot_date = start_date
@@ -184,11 +205,7 @@ class GitHub_API():
         
     def get_repo(self, github_id, repo_name) :
         json_data = self.get_json(f'repos/{github_id}/{repo_name}')
-        repo = {
-            'type': 'repo',
-            'github_id': json_data['owner']['login'], 
-            'repo_name': json_data['name']
-        }
+        repo = self.__data_init('repo')
         repo['stargazers_count'] = json_data['stargazers_count']
         repo['forks_count'] = json_data['forks_count']
         repo['watchers'] = None if not 'subscribers_count' in json_data else json_data['subscribers_count']
@@ -199,7 +216,6 @@ class GitHub_API():
         repo['license'] = None if json_data['license'] is None else json_data['license']['name']
         
         repo['release_ver'] = None
-        repo['release_count'] = 0
         release_data = self.get_json(f'repos/{github_id}/{repo_name}/releases')
         if len(release_data) > 0 :
             repo['release_ver'] = release_data[0]['name']
@@ -211,7 +227,6 @@ class GitHub_API():
                 page += 1
                 release_data = self.get_json(f'repos/{github_id}/{repo_name}/releases', page)
 
-        repo['contributors'] = 0
         try :
             contributor_data = self.get_json(f'repos/{github_id}/{repo_name}/contributors', page=1)
             page = 1
@@ -224,13 +239,11 @@ class GitHub_API():
         except GitHubException :
             repo['contributors'] = 999
 
-        repo['readme'] = 0
         content_data = self.get_json(f'repos/{github_id}/{repo_name}/contents')
         for content in content_data:
             if 'readme' in content['name'] or 'README' in content['name']:
                 repo['readme'] = content['size']
 
-        repo['commits_count'] = 0
         page = 1
         commit_list = self.get_json(f'repos/{github_id}/{repo_name}/commits')
         code_freq = [0, 0]
