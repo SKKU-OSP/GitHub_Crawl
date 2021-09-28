@@ -24,9 +24,10 @@ TYPE_DEFINE = {
     'repo_period': [
         'github_id', 'repo_name', 'start_yymm', 'end_yymm',
         'stargazer_count', 'forks_count', 'commits_count',
-        'prs_count', 'open_issue_count', 'close_issue_count',
-        'watchers_count', 'update_date', 'update_count',
-        'contributors_count', 'release_ver', 'release_count'
+        'code_edits', 'prs_count', 'open_issue_count', 
+        'close_issue_count', 'watchers_count', 'update_date', 
+        'update_count', 'contributors_count', 'release_ver', 
+        'release_count'
     ]
 }
 
@@ -269,3 +270,72 @@ class GitHub_API():
         repo['close_issue_count'] = int(issue_cnt[1][0])
 
         return repo
+        
+    def get_repo_period(self, github_id, repo_name, start_yymm, end_yymm) :
+        start_date = datetime.strptime(start_yymm, '%y%m')
+        end_date = self.__end_of_month(datetime.strptime(end_yymm, '%y%m'))
+        stats = self.__data_init('repo_period')
+        stats['github_id'] = github_id
+        stats['repo_name'] = repo_name
+        stats['start_yymm'] = start_yymm
+        stats['end_yymm'] = end_yymm
+        prs_set = set()
+        contributor_set = set()
+        commit_list = []
+
+        page = 1
+        while True:
+            json_data = self.get_json(f'repos/{github_id}/{repo_name}/events', page)
+            for event in json_data:
+                event_date = datetime.fromisoformat(event['created_at'][:-1])
+                if event_date < start_date or event_date > end_date :
+                    continue
+                if event['type'] == 'CreateEvent' :
+                    pass
+                if event['type'] == 'WatchEvent' :
+                    stats['stargazer_count'] += 1
+                if event['type'] == 'PushEvent' :
+                    if event['actor']['login'] != github_id :
+                        contributor_set.add(event['actor']['login'])
+                    stats['commits_count'] += event['payload']['size']
+                    commit_list += [c['sha'] for c in event['payload']['commits']]
+                    if stats['update_date'] == 0 :
+                        stats['update_date'] = event['created_at']
+                    stats['update_count'] += 1
+                if event['type'] == 'IssuesEvent' :
+                    if event['payload']['action'] == 'opened' :
+                        stats['open_issue_count'] += 1
+                    elif event['payload']['action'] == 'closed' :
+                        stats['close_issue_count'] += 1
+                    if stats['update_date'] == 0 :
+                        stats['update_date'] = event['created_at']
+                    stats['update_count'] += 1
+                if event['type'] == 'IssueCommentEvent' :
+                    if stats['update_date'] == 0 :
+                        stats['update_date'] = event['created_at']
+                    stats['update_count'] += 1
+                if event['type'] == 'PullRequestEvent' :
+                    prs_set.add(event['payload']['pull_request']['id'])
+                    if stats['update_date'] == 0 :
+                        stats['update_date'] = event['created_at']
+                    stats['update_count'] += 1
+                if event['type'] == 'ReleaseEvent' :
+                    if stats['release_ver'] == 0 :
+                        stats['release_ver'] = event['payload']['release']['tag_name']
+                    stats['release_count'] += 1
+                    if stats['update_date'] == 0 :
+                        stats['update_date'] = event['created_at']
+                    stats['update_count'] += 1
+                if event['type'] == 'ForkEvent' :
+                    stats['forks_count'] += 1
+            if len(json_data) < 100 :
+                break
+            page += 1
+        
+        stats['prs_count'] = len(prs_set)
+
+        for commit in commit_list :
+            stat = self.get_json(f'repos/{github_id}/{repo_name}/commits/{commit}')
+            stats['code_edits'] += stat['stats']['total']
+        
+        return stats
