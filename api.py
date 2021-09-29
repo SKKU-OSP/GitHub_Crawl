@@ -18,8 +18,8 @@ TYPE_DEFINE = {
         'github_id', 'repo_name', 'stargazers_count', 'forks_count',
         'watchers', 'create_date', 'update_date', 'language', 
         'proj_short_desc', 'license', 'release_ver', 'release_count',
-        'contributors', 'readme', 'commits_count', 'prs_count', 
-        'open_issue_count', 'close_issue_count'
+        'contributors', 'readme', 'commits_count', 'code_edits', 
+        'prs_count', 'open_issue_count', 'close_issue_count'
     ],
     'repo_period': [
         'github_id', 'repo_name', 'start_yymm', 'end_yymm',
@@ -247,16 +247,13 @@ class GitHub_API():
 
         page = 1
         commit_list = self.get_json(f'repos/{github_id}/{repo_name}/commits')
-        code_freq = [0, 0]
         while len(commit_list) > 0 :
             repo['commits_count'] += len(commit_list)
             for commit in commit_list :
                 stat = self.get_json(f'repos/{github_id}/{repo_name}/commits/{commit["sha"]}')
-                code_freq[0] += stat['stats']['additions']
-                code_freq[1] += stat['stats']['deletions']
+                repo['code_edits'] += stat['stats']['total']
             page += 1
             commit_list = self.get_json(f'repos/{github_id}/{repo_name}/commits', page)
-        repo['code_freqs'] = sum(code_freq)
 
         soup = self.get_soup(f'{github_id}/{repo_name}/pulls')
         prs_cnt = soup.select_one('a[data-ga-click="Pull Requests, Table state, Open"]').parent
