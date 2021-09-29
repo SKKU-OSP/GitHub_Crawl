@@ -39,12 +39,21 @@ class GitHubException(Exception) :
 
 class GitHub_API():
     def __init__(self, token):
-        self.auth = {
-            'Authorization': f'token {token}'
-        }
-        res = requests.get(GITHUB_API_URL, headers=self.auth)
-        if res.status_code != 200 :
-            raise GitHubException(f'Error in Authentication: status code {res.status_code} / {res.json()["message"]}')
+        if type(token) == str:
+            token_list = [token]
+        else:
+            token_list = token
+        self.tokens = []
+        for token in token_list :
+            self.auth = {
+                'Authorization': f'token {token}'
+            }
+            res = requests.get(GITHUB_API_URL, headers=self.auth)
+            if res.status_code != 200 :
+                raise GitHubException(f'Error in Authentication: status code {res.status_code} / {res.json()["message"]}')
+            self.tokens.append(token)
+        self.now_use_token = 0
+        self.auth = {'Authorization': f'token {self.tokens[0]}'}
 
     def __end_of_month(self, now: datetime) :
         next_month = now.month % 12 + 1
@@ -67,12 +76,19 @@ class GitHub_API():
         return limit
 
     def get_json(self, endpoint, page=1, per_page=100) :
-        res = requests.get(
-                f'{GITHUB_API_URL}{endpoint}', 
-                params={'page': page, 'per_page': per_page},
-                headers=self.auth)
-        if res.status_code != 200 :
-            raise GitHubException(f'Error: status code {res.status_code}')
+        while True:
+            res = requests.get(
+                    f'{GITHUB_API_URL}{endpoint}', 
+                    params={'page': page, 'per_page': per_page},
+                    headers=self.auth)
+            if res.status_code != 200:
+                if self.now_use_token < len(self.tokens) - 1:
+                    self.now_use_token += 1
+                    self.auth['Authorization'] = f'token {self.tokens[self.now_use_token]}'
+                else :
+                    raise GitHubException(f'Error: status code {res.status_code}')
+            else :
+                break
         return res.json()
 
     def get_soup(self, endpoint) :
