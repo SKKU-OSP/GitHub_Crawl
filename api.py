@@ -49,6 +49,7 @@ class GitHub_API():
                 'Authorization': f'token {token}'
             }
             res = requests.get(GITHUB_API_URL, headers=self.auth)
+            self.last_res_headers = res.headers
             if res.status_code != 200 :
                 raise GitHubException(f'Error in Authentication: status code {res.status_code} / {res.json()["message"]}')
             self.tokens.append(token)
@@ -66,13 +67,12 @@ class GitHub_API():
         return data
 
     def check_quota(self):
-        res = requests.get(GITHUB_API_URL, headers=self.auth)
         limit = {}
-        limit['limit'] = res.headers['X-RateLimit-Limit']
-        limit['remaining'] = res.headers['X-RateLimit-Remaining']
-        limit['reset'] = datetime.fromtimestamp(int(res.headers['X-RateLimit-Reset']))
+        limit['limit'] = self.last_res_headers['X-RateLimit-Limit']
+        limit['remaining'] = self.last_res_headers['X-RateLimit-Remaining']
+        limit['reset'] = datetime.fromtimestamp(int(self.last_res_headers['X-RateLimit-Reset']))
         limit['reset_remaining'] = limit['reset'] - datetime.now()
-        limit['used'] = res.headers['X-RateLimit-Used']
+        limit['used'] = self.last_res_headers['X-RateLimit-Used']
         return limit
 
     def get_json(self, endpoint, page=1, per_page=100) :
@@ -81,6 +81,7 @@ class GitHub_API():
                     f'{GITHUB_API_URL}{endpoint}', 
                     params={'page': page, 'per_page': per_page},
                     headers=self.auth)
+            self.last_res_headers = res.headers
             if res.status_code != 200:
                 if self.now_use_token < len(self.tokens) - 1:
                     self.now_use_token += 1
