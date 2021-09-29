@@ -6,17 +6,18 @@ GITHUB_API_URL = 'https://api.github.com/'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36 Edg/93.0.961.47'
 TYPE_DEFINE = {
     'user': [
-        'github_id', 'followers', 'following', 
-        'total_of_repos', 'highlights', 'achievements'
+        'github_id', 'followers', 'following', 'total_of_repos', 
+        'total_commits', 'total_prs', 'total_issues', 'highlights', 
+        'achievements'
     ],
     'user_period': [
         'github_id', 'start_yymm', 'end_yymm', 'stars', 
+        'num_of_cr_repos', 'num_of_co_repos'
         'num_of_commits', 'num_of_prs', 'num_of_issues',
-        'num_of_cr_repos'
     ],
     'repo': [
         'github_id', 'repo_name', 'stargazers_count', 'forks_count',
-        'watchers', 'create_date', 'update_date', 'language', 
+        'watchers_count', 'create_date', 'update_date', 'language', 
         'proj_short_desc', 'license', 'release_ver', 'release_count',
         'contributors', 'readme', 'commits_count', 'code_edits', 
         'prs_count', 'open_issue_count', 'close_issue_count'
@@ -226,7 +227,7 @@ class GitHub_API():
         repo = self.__data_init('repo')
         repo['stargazers_count'] = json_data['stargazers_count']
         repo['forks_count'] = json_data['forks_count']
-        repo['watchers'] = None if not 'subscribers_count' in json_data else json_data['subscribers_count']
+        repo['watchers_count'] = None if not 'subscribers_count' in json_data else json_data['subscribers_count']
         repo['create_date'] = json_data['created_at']
         repo['update_date'] = json_data['updated_at']
         repo['language'] = json_data['language']
