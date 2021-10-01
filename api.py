@@ -12,7 +12,7 @@ TYPE_DEFINE = {
     ],
     'user_period': [
         'github_id', 'start_yymm', 'end_yymm', 'stars', 
-        'num_of_cr_repos', 'num_of_co_repos'
+        'num_of_cr_repos', 'num_of_co_repos',
         'num_of_commits', 'num_of_prs', 'num_of_issues',
     ],
     'repo': [
@@ -165,6 +165,7 @@ class GitHub_API():
         stats['github_id'] = github_id
         stats['start_yymm'] = start_yymm
         stats['end_yymm'] = end_yymm
+        print(stats)
         contributed_repo = set()
         
         pivot_date = start_date
