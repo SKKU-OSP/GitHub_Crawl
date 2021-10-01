@@ -290,7 +290,7 @@ class GitHub_API():
         soup = self.get_soup(f'{github_id}/{repo_name}/pulls')
         prs_cnt = soup.select_one('a[data-ga-click="Pull Requests, Table state, Open"]').parent
         prs_cnt = [x.text.strip().split() for x in prs_cnt.select('a')]
-        repo['prs_counts'] = int(prs_cnt[0][0]) + int(prs_cnt[1][0])
+        repo['prs_count'] = int(prs_cnt[0][0]) + int(prs_cnt[1][0])
 
         soup = self.get_soup(f'{github_id}/{repo_name}/issues')
         issue_cnt = soup.select_one('a[data-ga-click="Issues, Table state, Open"]').parent
