@@ -175,9 +175,22 @@ class GitHub_API():
             soup = self.get_soup(f'{github_id}/?tab=overview&from={from_date}&to={to_date}')
             for event in soup.select('.TimelineItem-body'):
                 summary = event.select_one('summary')
-                if summary == None :
+                if summary == None:
+                    summary = event.select_one('h4')
+                    if summary == None:
+                        continue
+                    else:
+                        summary = ' '.join(summary.text.strip().split())
+                        print(summary)
+                        if 'Opened their first issue' in summary :
+                            stats['num_of_issues'] += 1
+                        if 'Opened their first pull request' in summary :
+                            stats['num_of_prs'] += 1
+                        if 'Created an issue' in summary :
+                            stats['num_of_issues'] += 1
+                        if 'Created an pull request' in summary :
+                            stats['num_of_prs'] += 1
                     continue
-
                 summary = summary.text.strip().split()
                 if summary[0] == 'Created':
                     # Create Commit
@@ -199,13 +212,11 @@ class GitHub_API():
                     # Open Issues
                     if 'issue' in summary or 'issues' in summary :
                         issue_list = event.select('li')
-                        for issue in issue_list:
-                            stats['num_of_issues'] += 1
+                        stats['num_of_issues'] += len(issue_list)
                     # Open Pull Requests
                     elif 'request' in summary or 'requests' in summary :
                         pr_list = event.select('li')
-                        for pr in pr_list:
-                            stats['num_of_prs'] += 1
+                        stats['num_of_prs'] += len(pr_list)
                         pass
             pivot_date = self.__end_of_month(pivot_date) + timedelta(days=1)
             
