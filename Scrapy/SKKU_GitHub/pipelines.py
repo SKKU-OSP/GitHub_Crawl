@@ -32,14 +32,14 @@ class SkkuGithubPipeline:
             self.wait[item['github_id']] = item
         elif type(item) == UserUpdate:
             prev = self.wait[item['github_id']]
-            if 'achievements' in item or 'highlights' in item:
+            if item['target'] == 'badge':
                 prev['achievements'] = item['achievements']
                 prev['highlights'] = item['highlights']
-            elif 'total_commits' in item:
+            elif item['target'] == 'activity':
                 prev['total_commits'] += item['total_commits']
                 prev['total_PRs'] += item['total_PRs']
                 prev['total_issues'] += item['total_issues']
-            elif 'stars' in item:
+            elif item['target'] == 'repo_star':
                 prev['stars'] += item['stars']
             prev['request_cnt'] -= 1
             self.wait[item['github_id']] = prev

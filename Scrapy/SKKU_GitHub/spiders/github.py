@@ -89,6 +89,7 @@ class GithubSpider(scrapy.Spider):
         soup = BeautifulSoup(res.body, 'html.parser')
         user_update = UserUpdate()
         user_update['github_id'] = github_id
+        user_update['target'] = 'activity'
         user_update['total_commits'] = 0
         user_update['total_PRs'] = 0
         user_update['total_issues'] = 0
@@ -134,6 +135,7 @@ class GithubSpider(scrapy.Spider):
         info_list = [tag.parent for tag in soup.select('h2.h4.mb-2')]
         user_data = UserUpdate()
         user_data['github_id'] = res.meta['github_id']
+        user_data['target'] = 'badge'
         user_data['achievements'] = None
         user_data['highlights'] = None
         for info in info_list :
@@ -152,6 +154,7 @@ class GithubSpider(scrapy.Spider):
         user_data = UserUpdate()
         github_id = res.meta['github_id']
         user_data['github_id'] = github_id
+        user_data['target'] = 'repo_star'
         user_data['stars'] = 0
         for repo_data in json_data:
             user_data['stars'] += repo_data['stargazers_count']

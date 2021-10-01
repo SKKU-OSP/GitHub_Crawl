@@ -21,6 +21,7 @@ class User(scrapy.Item) :
 
 class UserUpdate(scrapy.Item) :
     github_id = scrapy.Field()
+    target = scrapy.Field()
     total_commits = scrapy.Field()
     total_PRs = scrapy.Field()
     total_issues = scrapy.Field()
