@@ -237,6 +237,8 @@ class GitHub_API():
     def get_repo(self, github_id, repo_name) :
         json_data = self.get_json(f'repos/{github_id}/{repo_name}')
         repo = self.__data_init('repo')
+        repo['github_id'] = github_id
+        repo['repo_name'] = repo_name
         repo['stargazers_count'] = json_data['stargazers_count']
         repo['forks_count'] = json_data['forks_count']
         repo['watchers_count'] = None if not 'subscribers_count' in json_data else json_data['subscribers_count']
