@@ -11,7 +11,8 @@ class GithubSpider(scrapy.Spider):
     name = 'github'
 
     def __init__(self, ids='', **kwargs):
-        self.ids = ['BigDannyK']
+        self.ids = open('student_list.txt', 'r').read().split()
+        print(self.ids)
         self.hd = {
             'Authorization' : f'token {OAUTH_TOKEN}'
         }
@@ -93,6 +94,9 @@ class GithubSpider(scrapy.Spider):
         user_update['total_commits'] = 0
         user_update['total_PRs'] = 0
         user_update['total_issues'] = 0
+        owned_repo = set()
+        contributed_repo = set()
+
         for event in soup.select('.TimelineItem-body'):
             summary = event.select_one('summary')
             if summary == None :
@@ -119,6 +123,11 @@ class GithubSpider(scrapy.Spider):
                         detail = commit.select('a')
                         commit_cnt = int(detail[1].text.strip().split()[0])
                         user_update['total_commits']  += commit_cnt
+                        repo = detail[0].text
+                        if repo.split('/')[0] != github_id :
+                            contributed_repo.add(repo)
+                        else :
+                            owned_repo.add(repo)
             elif summary[0] == 'Opened' :
                 # Open Issues
                 if 'issue' in summary or 'issues' in summary :
@@ -129,6 +138,19 @@ class GithubSpider(scrapy.Spider):
                     pr_list = event.select('li')
                     user_update['total_PRs'] += len(pr_list)
         yield user_update
+
+        for repo in owned_repo :
+            contribute = RepoContribute()
+            contribute['github_id'] = github_id
+            contribute['owner_id'], contribute['repo_name'] = repo.split('/')
+            yield contribute
+            yield self.api_get(f'repos/{repo}', self.parse_repo)
+        for repo in contributed_repo :
+            contribute = RepoContribute()
+            contribute['github_id'] = github_id
+            contribute['owner_id'], contribute['repo_name'] = repo.split('/')
+            yield contribute
+            yield self.api_get(f'repos/{repo}', self.parse_repo)
 
     def parse_user_page(self, res):
         soup = BeautifulSoup(res.body, 'html.parser')
@@ -171,4 +193,117 @@ class GithubSpider(scrapy.Spider):
                 )
 
     def parse_repo(self, res):
-        pass
+        json_data = json.loads(res.body)
+        repo_data = Repo()
+        github_id = json_data['owner']['login']
+        repo_name = json_data['name']
+        repo_data['github_id'] = github_id
+        repo_data['repo_name'] = repo_name
+        repo_data['path'] = f'{github_id}/{repo_name}'
+        repo_data['stargazers_count'] = json_data['stargazers_count']
+        repo_data['forks_count'] = json_data['forks_count']
+        repo_data['watchers'] = None if not 'subscribers_count' in json_data else json_data['subscribers_count']
+        repo_data['create_date'] = json_data['created_at']
+        repo_data['update_date'] = json_data['updated_at']
+        repo_data['language'] = json_data['language']
+        repo_data['proj_short_desc'] = json_data['description']
+        repo_data['code_edits'] = 0
+        repo_data['license'] = None if json_data['license'] is None else json_data['license']['name']
+        yield repo_data
+
+        yield scrapy.Request(
+            f'{HTML_URL}/{github_id}/{repo_name}',
+            self.parse_repo_page,
+            meta={'github_id': github_id, 'repo_name': repo_name}
+        )
+
+    def parse_repo_page(self, res):
+        soup = BeautifulSoup(res.body, 'html.parser')
+        github_id = res.meta['github_id']
+        repo_name = res.meta['repo_name']
+        repo_data = RepoUpdate()
+        repo_data['path'] = f'{github_id}/{repo_name}'
+        repo_data['target'] = 'main_page'
+        release_tag = soup.select_one(f'a[href="/{github_id}/{repo_name}/releases"]')
+        release_tag = release_tag.parent.parent
+        if release_tag.select_one('span.Counter') is None:
+            repo_data['release_ver'] = None
+            repo_data['release_count'] = 0
+        else :
+            repo_data['release_count'] = int(release_tag.select_one('span.Counter').text)
+            repo_data['release_ver'] = release_tag.select_one('a > div span').text
+
+        contributor_tag = soup.select_one(f'a[href="/{github_id}/{repo_name}/graphs/contributors"]')
+        if not contributor_tag is None:
+            contributor_tag = contributor_tag.parent.parent
+            repo_data['contributors'] = int(contributor_tag.select_one('span.Counter').text.replace(',',''))
+        else:
+            repo_data['contributors'] = 1
+        
+        repo_data['readme'] = not soup.select_one('div#readme') is None
+        repo_data['commits_count'] = int(soup.select_one('div.Box-header strong').text.replace(',',''))
+        repo_data['request_cnt'] = 2 + repo_data['commits_count']
+        yield repo_data
+
+        yield scrapy.Request(
+            f'{HTML_URL}/{repo_data["path"]}/pulls',
+            self.parse_repo_pr,
+            meta={'path': repo_data['path']}
+        )
+        yield scrapy.Request(
+            f'{HTML_URL}/{repo_data["path"]}/issues',
+            self.parse_repo_issue,
+            meta={'path': repo_data['path']}
+        )
+        yield self.api_get(
+            f'repos/{github_id}/{repo_name}/commits',
+            self.parse_repo_commit, {'path': repo_data['path'], 'page': 1})
+    
+    def parse_repo_pr(self, res):
+        soup = BeautifulSoup(res.body, 'html.parser')
+        repo_data = RepoUpdate()
+        repo_data['path'] = res.meta['path']
+        repo_data['target'] = 'pr'
+        prs_cnt = soup.select_one('a[data-ga-click="Pull Requests, Table state, Open"]').parent
+        prs_cnt = [x.text.strip().split() for x in prs_cnt.select('a')]
+        repo_data['prs_count'] = int(prs_cnt[0][0]) + int(prs_cnt[1][0])
+        yield repo_data
+
+    def parse_repo_issue(self, res):
+        soup = BeautifulSoup(res.body, 'html.parser')
+        repo_data = RepoUpdate()
+        repo_data['path'] = res.meta['path']
+        repo_data['target'] = 'issue'
+        issue_cnt = soup.select_one('a[data-ga-click="Issues, Table state, Open"]').parent
+        issue_cnt = [x.text.strip().split() for x in issue_cnt.select('a')]
+        repo_data['open_issue_count'] = int(issue_cnt[0][0])
+        repo_data['close_issue_count'] = int(issue_cnt[1][0])
+        yield repo_data
+    
+    def parse_repo_commit(self, res):
+        json_data = json.loads(res.body)
+        path = res.meta['path']
+        for commits in json_data:
+            yield self.api_get(
+                f'repos/{path}/commits/{commits["sha"]}',
+                self.parse_repo_commit_edits,
+                {'path': res.meta['path']}
+            )
+        
+        if len(json_data) == 100 :
+            metadata = res.meta
+            metadata['page'] += 1
+            yield self.api_get(
+                f'repos/{path}/commits',
+                self.parse_repo_commit,
+                metadata,
+                page = metadata['page']
+                )
+
+    def parse_repo_commit_edits(self, res):
+        json_data = json.loads(res.body)
+        repo_data = RepoUpdate()
+        repo_data['path'] = res.meta['path']
+        repo_data['target'] = 'commit'
+        repo_data['code_edits'] = json_data['stats']['total']
+        yield repo_data

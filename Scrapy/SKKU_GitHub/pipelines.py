@@ -48,7 +48,28 @@ class SkkuGithubPipeline:
                 insert = True
                 data = prev
                 print(prev)
-        
+        elif type(item) == Repo:
+            self.wait[item['path']] = item
+        elif type(item) == RepoUpdate:
+            if item['target'] == 'main_page':
+                self.wait[item['path']].update(item)
+            elif item['target'] == 'pr':
+                self.wait[item['path']].update(item)
+                self.wait[item['path']]['request_cnt'] -= 1
+            elif item['target'] == 'issue':
+                self.wait[item['path']].update(item)
+                self.wait[item['path']]['request_cnt'] -= 1
+            elif item['target'] == 'commit':
+                self.wait[item['path']]['code_edits'] += item['code_edits']
+                self.wait[item['path']]['request_cnt'] -= 1
+            if self.wait[item['path']]['request_cnt'] == 0:
+                insert = True
+                data = self.wait[item['path']]
+                self.wait.pop(item['path'])
+        elif type(item) == RepoContribute:
+            insert = True
+            data = item
+
         if insert:
             if type(data) == User:
                 insert_sql = 'INSERT IGNORE INTO github_crawl.github_overview('
@@ -60,6 +81,29 @@ class SkkuGithubPipeline:
                         data['total_repos'], data['total_commits'], data['total_PRs'], 
                         data['total_issues'], data['achievements'], data['highlights']
                     )
+            if type(data) == Repo:
+                print(data)
+                insert_sql = 'INSERT IGNORE INTO github_repo_stats('
+                insert_sql+= 'github_id, repo_name, stargazers_count, '
+                insert_sql+= 'forks_count, commits_count, prs_count, '
+                insert_sql+= 'open_issue_count, close_issue_count, '
+                insert_sql+= 'wachers_count, dependencies, language, '
+                insert_sql+= 'create_date, update_date, contributors_count, '
+                insert_sql+= 'release_ver, release_count, license, readme, '
+                insert_sql+= 'proj_short_desc) VALUES(%s, %s, %s, %s, %s, %s, '
+                insert_sql+= '%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
+                insert_data = (
+                    data['github_id'], data['repo_name'], data['stargazers_count'],
+                    data['forks_count'], data['commits_count'], data['prs_count'],
+                    data['open_issue_count'], data['close_issue_count'], data['watchers'],
+                    '', data['language'], data['create_date'], data['update_date'],
+                    data['contributors'], data['release_ver'], data['release_count'],
+                    data['license'], data['readme'], data['proj_short_desc']
+                )
+            if type(data) == RepoContribute:
+                insert_sql = 'INSERT IGNORE INTO github_repo_contributor('
+                insert_sql+= 'github_id, owner_id, repo_name) VALUES(%s, %s, %s)'
+                insert_data = (data['github_id'], data['owner_id'], data['repo_name'])
 
             try:
                 self.cursor.execute(insert_sql, insert_data)
