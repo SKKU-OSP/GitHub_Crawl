@@ -241,13 +241,17 @@ class GithubSpider(scrapy.Spider):
         repo_data['path'] = f'{github_id}/{repo_name}'
         repo_data['target'] = 'main_page'
         release_tag = soup.select_one(f'a[href="/{github_id}/{repo_name}/releases"]')
-        release_tag = release_tag.parent.parent
-        if release_tag.select_one('span.Counter') is None:
+        if release_tag is None :
             repo_data['release_ver'] = None
             repo_data['release_count'] = 0
-        else :
-            repo_data['release_count'] = int(release_tag.select_one('span.Counter').text)
-            repo_data['release_ver'] = release_tag.select_one('a > div span').text
+        else:
+            release_tag = release_tag.parent.parent
+            if release_tag.select_one('span.Counter') is None:
+                repo_data['release_ver'] = None
+                repo_data['release_count'] = 0
+            else :
+                repo_data['release_count'] = int(release_tag.select_one('span.Counter').text)
+                repo_data['release_ver'] = release_tag.select_one('a > div span').text
 
         contributor_tag = soup.select_one(f'a[href="/{github_id}/{repo_name}/graphs/contributors"]')
         if not contributor_tag is None:

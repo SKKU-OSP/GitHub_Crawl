@@ -11,6 +11,7 @@ from scrapy import signals
 from itemadapter import is_item, ItemAdapter
 from scrapy.downloadermiddlewares.retry import RetryMiddleware
 from scrapy.utils.response import response_status_message
+from datetime import datetime, timedelta
 
 
 class SkkuGithubSpiderMiddleware:
@@ -123,6 +124,22 @@ class TooManyRequestsRetryMiddleware(RetryMiddleware):
             self.crawler.engine.pause()
             sleep(5)
             self.crawler.engine.unpause()
+            reason = response_status_message(response.status)
+            return self._retry(request, reason, spider) or response
+        elif response.status == 403:
+            hds = {}
+            for key in response.headers:
+                hds[key.decode()] = response.headers[key].decode()
+            print('Out of quota')
+            reset_time = int(hds['X-Ratelimit-Reset'])
+            reset_time = datetime.fromtimestamp(reset_time)
+            wait_time = reset_time - datetime.now()
+            if wait_time > timedelta(seconds=1):
+                print(f'Reset Time {reset_time}')
+                print(f'Wait Time {wait_time.seconds}s')
+                self.crawler.engine.pause()
+                sleep(wait_time.seconds)
+                self.crawler.engine.unpause()
             reason = response_status_message(response.status)
             return self._retry(request, reason, spider) or response
         elif response.status in self.retry_http_codes:
