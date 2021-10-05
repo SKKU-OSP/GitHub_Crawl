@@ -75,7 +75,7 @@ class GithubSpider(scrapy.Spider):
             yield scrapy.Request(
                 f'{HTML_URL}/{github_id}/?tab=overview&from={from_date}&to={to_date}',
                 self.parse_user_update,
-                meta={'github_id':github_id},
+                meta={'github_id':github_id, 'from': from_date, 'to': to_date},
             )
             pivot_date = self.__end_of_month(pivot_date) + timedelta(days=1)
         
@@ -94,6 +94,13 @@ class GithubSpider(scrapy.Spider):
         user_update['total_commits'] = 0
         user_update['total_PRs'] = 0
         user_update['total_issues'] = 0
+        
+        user_period = UserPeriod()
+        user_period['github_id'] = github_id
+        user_period['start_yymm'] = res.meta['from']
+        user_period['end_yymm'] = res.meta['to']
+        user_period['num_of_cr_repos'] = 0
+        user_period['stars'] = 0
         owned_repo = set()
         contributed_repo = set()
 
@@ -128,6 +135,9 @@ class GithubSpider(scrapy.Spider):
                             contributed_repo.add(repo)
                         else :
                             owned_repo.add(repo)
+                # Create Repository
+                elif summary[2] == 'repository' or summary[2] == 'repositories':
+                    user_period['num_of_cr_repos'] += 1
             elif summary[0] == 'Opened' :
                 # Open Issues
                 if 'issue' in summary or 'issues' in summary :
@@ -138,6 +148,12 @@ class GithubSpider(scrapy.Spider):
                     pr_list = event.select('li')
                     user_update['total_PRs'] += len(pr_list)
         yield user_update
+
+        user_period['num_of_co_repos'] = len(contributed_repo)
+        user_period['num_of_commits'] = user_update['total_commits']
+        user_period['num_of_PRs'] = user_update['total_PRs']
+        user_period['num_of_issues'] = user_update['total_issues']
+        yield user_period
 
         for repo in owned_repo :
             contribute = RepoContribute()
@@ -265,7 +281,7 @@ class GithubSpider(scrapy.Spider):
         repo_data['path'] = res.meta['path']
         repo_data['target'] = 'pr'
         prs_cnt = soup.select_one('a[data-ga-click="Pull Requests, Table state, Open"]').parent
-        prs_cnt = [x.text.strip().split() for x in prs_cnt.select('a')]
+        prs_cnt = [x.text.strip().replace(',','').split() for x in prs_cnt.select('a')]
         repo_data['prs_count'] = int(prs_cnt[0][0]) + int(prs_cnt[1][0])
         yield repo_data
 
@@ -275,7 +291,7 @@ class GithubSpider(scrapy.Spider):
         repo_data['path'] = res.meta['path']
         repo_data['target'] = 'issue'
         issue_cnt = soup.select_one('a[data-ga-click="Issues, Table state, Open"]').parent
-        issue_cnt = [x.text.strip().split() for x in issue_cnt.select('a')]
+        issue_cnt = [x.text.strip().replace(',','').split() for x in issue_cnt.select('a')]
         repo_data['open_issue_count'] = int(issue_cnt[0][0])
         repo_data['close_issue_count'] = int(issue_cnt[1][0])
         yield repo_data

@@ -66,10 +66,13 @@ class SkkuGithubPipeline:
                 insert = True
                 data = self.wait[item['path']]
                 self.wait.pop(item['path'])
+        elif type(item) == UserPeriod:
+            insert = True
+            data = item
         elif type(item) == RepoContribute:
             insert = True
             data = item
-
+        
         if insert:
             if type(data) == User:
                 insert_sql = 'INSERT IGNORE INTO github_crawl.github_overview('
@@ -77,12 +80,21 @@ class SkkuGithubPipeline:
                 insert_sql+= 'total_commits, total_PRs, total_issues, achievements, highlights) '
                 insert_sql+= 'VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
                 insert_data = (
-                        data['github_id'], data['stars'], data['followers'], data['following'], 
-                        data['total_repos'], data['total_commits'], data['total_PRs'], 
-                        data['total_issues'], data['achievements'], data['highlights']
+                    data['github_id'], data['stars'], data['followers'], data['following'], 
+                    data['total_repos'], data['total_commits'], data['total_PRs'], 
+                    data['total_issues'], data['achievements'], data['highlights']
                     )
+            if type(data) == UserPeriod:
+                insert_sql = 'INSERT IGNORE INTO github_stats_yymm('
+                insert_sql+= 'github_id, start_yymm, end_yymm, stars, num_of_cr_repos, '
+                insert_sql+= 'num_of_co_repos, num_of_commits, num_of_PRs, num_of_issues) '
+                insert_sql+= 'VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)'
+                insert_data = (
+                    data['github_id'], data['start_yymm'], data['end_yymm'], data['stars'], 
+                    data['num_of_cr_repos'], data['num_of_co_repos'], data['num_of_commits'],
+                    data['num_of_PRs'], data['num_of_issues']
+                )
             if type(data) == Repo:
-                print(data)
                 insert_sql = 'INSERT IGNORE INTO github_repo_stats('
                 insert_sql+= 'github_id, repo_name, stargazers_count, '
                 insert_sql+= 'forks_count, commits_count, prs_count, '
@@ -105,6 +117,7 @@ class SkkuGithubPipeline:
                 insert_sql+= 'github_id, owner_id, repo_name) VALUES(%s, %s, %s)'
                 insert_data = (data['github_id'], data['owner_id'], data['repo_name'])
 
+            #print(data)
             try:
                 self.cursor.execute(insert_sql, insert_data)
                 self.crawlDB.commit()
