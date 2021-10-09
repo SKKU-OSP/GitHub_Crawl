@@ -97,20 +97,21 @@ class SkkuGithubPipeline:
             if type(data) == Repo:
                 insert_sql = 'INSERT IGNORE INTO github_repo_stats('
                 insert_sql+= 'github_id, repo_name, stargazers_count, '
-                insert_sql+= 'forks_count, commits_count, prs_count, '
-                insert_sql+= 'open_issue_count, close_issue_count, '
+                insert_sql+= 'forks_count, commits_count, code_edits, '
+                insert_sql+= 'prs_count, open_issue_count, close_issue_count, '
                 insert_sql+= 'wachers_count, dependencies, language, '
                 insert_sql+= 'create_date, update_date, contributors_count, '
                 insert_sql+= 'release_ver, release_count, license, readme, '
-                insert_sql+= 'proj_short_desc) VALUES(%s, %s, %s, %s, %s, %s, '
+                insert_sql+= 'proj_short_desc) VALUES(%s, %s, %s, %s, %s, %s, %s'
                 insert_sql+= '%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
                 insert_data = (
                     data['github_id'], data['repo_name'], data['stargazers_count'],
-                    data['forks_count'], data['commits_count'], data['prs_count'],
-                    data['open_issue_count'], data['close_issue_count'], data['watchers'],
-                    '', data['language'], data['create_date'], data['update_date'],
-                    data['contributors'], data['release_ver'], data['release_count'],
-                    data['license'], data['readme'], data['proj_short_desc']
+                    data['forks_count'], data['commits_count'], data['code_edits'], 
+                    data['prs_count'], data['open_issue_count'], data['close_issue_count'], 
+                    data['watchers'], '', data['language'], data['create_date'], 
+                    data['update_date'], data['contributors'], data['release_ver'], 
+                    data['release_count'], data['license'], data['readme'], 
+                    data['proj_short_desc']
                 )
             if type(data) == RepoContribute:
                 insert_sql = 'INSERT IGNORE INTO github_repo_contributor('
