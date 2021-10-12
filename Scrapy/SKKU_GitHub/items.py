@@ -53,7 +53,6 @@ class Repo(scrapy.Item):
     contributors = scrapy.Field()       # Main Page
     readme = scrapy.Field()             # Main Page
     commits_count = scrapy.Field()      # Main Page
-    code_edits = scrapy.Field()         # Commit API
     prs_count = scrapy.Field()          # PR Page
     open_issue_count = scrapy.Field()   # Issue Page
     close_issue_count = scrapy.Field()  # Issue Page
@@ -67,7 +66,6 @@ class RepoUpdate(scrapy.Item):
     contributors = scrapy.Field()
     readme = scrapy.Field()
     commits_count = scrapy.Field()
-    code_edits = scrapy.Field()
     prs_count = scrapy.Field()
     open_issue_count = scrapy.Field()
     close_issue_count = scrapy.Field()
@@ -77,3 +75,14 @@ class RepoContribute(scrapy.Item):
     github_id = scrapy.Field()
     owner_id = scrapy.Field()
     repo_name = scrapy.Field()
+
+class RepoCommit(scrapy.Item):
+    github_id = scrapy.Field()
+    repo_name = scrapy.Field()
+    sha = scrapy.Field()
+    committer = scrapy.Field()
+    committer_date = scrapy.Field()
+    author = scrapy.Field()
+    author_date = scrapy.Field()
+    additions = scrapy.Field()
+    deletions = scrapy.Field()

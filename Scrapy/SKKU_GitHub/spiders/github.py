@@ -223,7 +223,6 @@ class GithubSpider(scrapy.Spider):
         repo_data['update_date'] = json_data['updated_at']
         repo_data['language'] = json_data['language']
         repo_data['proj_short_desc'] = json_data['description']
-        repo_data['code_edits'] = 0
         repo_data['license'] = None if json_data['license'] is None else json_data['license']['name']
         yield repo_data
 
@@ -262,7 +261,7 @@ class GithubSpider(scrapy.Spider):
         
         repo_data['readme'] = not soup.select_one('div#readme') is None
         repo_data['commits_count'] = int(soup.select_one('div.Box-header strong').text.replace(',',''))
-        repo_data['request_cnt'] = 2 + repo_data['commits_count']
+        repo_data['request_cnt'] = 2
         yield repo_data
 
         yield scrapy.Request(
@@ -322,8 +321,16 @@ class GithubSpider(scrapy.Spider):
 
     def parse_repo_commit_edits(self, res):
         json_data = json.loads(res.body)
-        repo_data = RepoUpdate()
-        repo_data['path'] = res.meta['path']
-        repo_data['target'] = 'commit'
-        repo_data['code_edits'] = json_data['stats']['total']
-        yield repo_data
+        commit_data = RepoCommit()
+        commit_data['github_id'] = res.meta['path'].split('/')[0]
+        commit_data['repo_name'] = res.meta['path'].split('/')[1]
+        commit_data['sha'] = json_data['sha']
+        committer = json_data['committer']
+        commit_data['committer'] = None if committer is None else committer['login']
+        commit_data['committer_date'] = json_data['commit']['committer']['date']
+        author = json_data['author']
+        commit_data['author'] = None if author is None else author['login']
+        commit_data['author_date'] = json_data['commit']['author']['date']
+        commit_data['additions'] = json_data['stats']['additions']
+        commit_data['deletions'] = json_data['stats']['deletions']
+        yield commit_data
