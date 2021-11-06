@@ -47,16 +47,12 @@ class SkkuGithubPipeline:
                 self.wait.pop(item['github_id'])
                 insert = True
                 data = prev
-                print(prev)
         elif type(item) == Repo:
             self.wait[item['path']] = item
         elif type(item) == RepoUpdate:
             if item['target'] == 'main_page':
                 self.wait[item['path']].update(item)
-            elif item['target'] == 'pr':
-                self.wait[item['path']].update(item)
-                self.wait[item['path']]['request_cnt'] -= 1
-            elif item['target'] == 'issue':
+            else:
                 self.wait[item['path']].update(item)
                 self.wait[item['path']]['request_cnt'] -= 1
             if self.wait[item['path']]['request_cnt'] == 0:
@@ -99,7 +95,7 @@ class SkkuGithubPipeline:
                 insert_sql+= 'github_id, repo_name, stargazers_count, '
                 insert_sql+= 'forks_count, commits_count, '
                 insert_sql+= 'prs_count, open_issue_count, close_issue_count, '
-                insert_sql+= 'wachers_count, dependencies, language, '
+                insert_sql+= 'watchers_count, dependencies, language, '
                 insert_sql+= 'create_date, update_date, contributors_count, '
                 insert_sql+= 'release_ver, release_count, license, readme, '
                 insert_sql+= 'proj_short_desc) VALUES(%s, %s, %s, %s, %s, %s, %s, '
@@ -107,9 +103,9 @@ class SkkuGithubPipeline:
                 insert_data = (
                     data['github_id'], data['repo_name'], data['stargazers_count'],
                     data['forks_count'], data['commits_count'], data['prs_count'], 
-                    data['open_issue_count'], data['close_issue_count'], data['watchers'], 
-                    '', data['language'], data['create_date'], data['update_date'], 
-                    data['contributors'], data['release_ver'], data['release_count'], 
+                    data['open_issue_count'], data['close_issue_count'], data['watchers_count'], 
+                    data['dependencies'], data['language'], data['create_date'], data['update_date'], 
+                    data['contributors_count'], data['release_ver'], data['release_count'], 
                     data['license'], data['readme'], data['proj_short_desc']
                 )
             if type(data) == RepoContribute:
@@ -118,13 +114,13 @@ class SkkuGithubPipeline:
                 insert_data = (data['github_id'], data['owner_id'], data['repo_name'])
             if type(data) == RepoCommit:
                 insert_sql = 'INSERT IGNORE INTO github_repo_commits('
-                insert_sql+= 'github_id, repo_name, sha, committer, commit_date, '
-                insert_sql+= 'author, author_date, additions, deletions) VALUES('
-                insert_sql+= '%s, %s, %s, %s, %s, %s, %s, %s, %s)'
+                insert_sql+= 'github_id, repo_name, sha, committer, committer_date, committer_github, '
+                insert_sql+= 'author, author_date, author_github, additions, deletions) VALUES('
+                insert_sql+= '%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
                 insert_data = (
                     data['github_id'], data['repo_name'], data['sha'], data['committer'],
-                    data['committer_date'], data['author'], data['author_date'],
-                    data['additions'], data['deletions'])
+                    data['committer_date'], data['committer_github'], data['author'], 
+                    data['author_date'], data['author_github'], data['additions'], data['deletions'])
                 
             #print(data)
             try:

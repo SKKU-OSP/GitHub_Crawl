@@ -42,7 +42,7 @@ class Repo(scrapy.Item):
     target = scrapy.Field()
     stargazers_count = scrapy.Field()   # API
     forks_count = scrapy.Field()        # API
-    watchers = scrapy.Field()           # API
+    watchers_count = scrapy.Field()           # API
     create_date = scrapy.Field()        # API
     update_date = scrapy.Field()        # API
     language = scrapy.Field()           # API
@@ -50,7 +50,8 @@ class Repo(scrapy.Item):
     license = scrapy.Field()            # API
     release_ver = scrapy.Field()        # Main Page
     release_count = scrapy.Field()      # Main Page
-    contributors = scrapy.Field()       # Main Page
+    dependencies = scrapy.Field()
+    contributors_count = scrapy.Field()       # Main Page
     readme = scrapy.Field()             # Main Page
     commits_count = scrapy.Field()      # Main Page
     prs_count = scrapy.Field()          # PR Page
@@ -63,12 +64,13 @@ class RepoUpdate(scrapy.Item):
     target = scrapy.Field()
     release_ver = scrapy.Field()
     release_count = scrapy.Field()
-    contributors = scrapy.Field()
+    contributors_count = scrapy.Field()
     readme = scrapy.Field()
     commits_count = scrapy.Field()
     prs_count = scrapy.Field()
     open_issue_count = scrapy.Field()
     close_issue_count = scrapy.Field()
+    dependencies = scrapy.Field()
     request_cnt = scrapy.Field()
 
 class RepoContribute(scrapy.Item):
@@ -82,7 +84,9 @@ class RepoCommit(scrapy.Item):
     sha = scrapy.Field()
     committer = scrapy.Field()
     committer_date = scrapy.Field()
+    committer_github = scrapy.Field()
     author = scrapy.Field()
     author_date = scrapy.Field()
+    author_github = scrapy.Field()
     additions = scrapy.Field()
     deletions = scrapy.Field()

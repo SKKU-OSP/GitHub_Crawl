@@ -13,9 +13,6 @@ class GithubSpider(scrapy.Spider):
     def __init__(self, ids='', **kwargs):
         self.ids = open('student_list.txt', 'r').read().split()
         print(self.ids)
-        self.hd = {
-            'Authorization' : f'token {OAUTH_TOKEN}'
-        }
         if ids != '' :
             self.ids = ids.split(',')
 
@@ -32,7 +29,6 @@ class GithubSpider(scrapy.Spider):
         req = scrapy.Request(
                 f'{API_URL}/{endpoint}?page={page}&per_page={per_page}',
                 callback,
-                headers=self.hd,
                 meta=metadata)
         
         return req
@@ -218,7 +214,7 @@ class GithubSpider(scrapy.Spider):
         repo_data['path'] = f'{github_id}/{repo_name}'
         repo_data['stargazers_count'] = json_data['stargazers_count']
         repo_data['forks_count'] = json_data['forks_count']
-        repo_data['watchers'] = None if not 'subscribers_count' in json_data else json_data['subscribers_count']
+        repo_data['watchers_count'] = None if not 'subscribers_count' in json_data else json_data['subscribers_count']
         repo_data['create_date'] = json_data['created_at']
         repo_data['update_date'] = json_data['updated_at']
         repo_data['language'] = json_data['language']
@@ -255,13 +251,13 @@ class GithubSpider(scrapy.Spider):
         contributor_tag = soup.select_one(f'a[href="/{github_id}/{repo_name}/graphs/contributors"]')
         if not contributor_tag is None:
             contributor_tag = contributor_tag.parent.parent
-            repo_data['contributors'] = int(contributor_tag.select_one('span.Counter').text.replace(',',''))
+            repo_data['contributors_count'] = int(contributor_tag.select_one('span.Counter').text.replace(',',''))
         else:
-            repo_data['contributors'] = 1
+            repo_data['contributors_count'] = 1
         
         repo_data['readme'] = not soup.select_one('div#readme') is None
         repo_data['commits_count'] = int(soup.select_one('div.Box-header strong').text.replace(',',''))
-        repo_data['request_cnt'] = 2
+        repo_data['request_cnt'] = 3
         yield repo_data
 
         yield scrapy.Request(
@@ -277,6 +273,17 @@ class GithubSpider(scrapy.Spider):
         yield self.api_get(
             f'repos/{github_id}/{repo_name}/commits',
             self.parse_repo_commit, {'path': repo_data['path'], 'page': 1})
+        
+        yield scrapy.Request(
+            f'{HTML_URL}/{repo_data["path"]}/graphs/contributors-data',
+            self.parse_repo_contributor, headers={'accept': 'application/json'},
+            meta={'path': repo_data['path']}
+        )
+        yield scrapy.Request(
+            f'{HTML_URL}/{repo_data["path"]}/network/dependencies',
+            self.parse_repo_dependencies,
+            meta={'path': repo_data['path']}
+        )
     
     def parse_repo_pr(self, res):
         soup = BeautifulSoup(res.body, 'html.parser')
@@ -326,11 +333,29 @@ class GithubSpider(scrapy.Spider):
         commit_data['repo_name'] = res.meta['path'].split('/')[1]
         commit_data['sha'] = json_data['sha']
         committer = json_data['committer']
-        commit_data['committer'] = None if committer is None else committer['login']
+        commit_data['committer_github'] = None if committer is None else committer['login']
         commit_data['committer_date'] = json_data['commit']['committer']['date']
+        commit_data['committer'] = json_data['commit']['committer']['email']
         author = json_data['author']
-        commit_data['author'] = None if author is None else author['login']
+        commit_data['author_github'] = None if author is None else author['login']
         commit_data['author_date'] = json_data['commit']['author']['date']
+        commit_data['author'] = json_data['commit']['author']['email']
         commit_data['additions'] = json_data['stats']['additions']
         commit_data['deletions'] = json_data['stats']['deletions']
         yield commit_data
+
+    def parse_repo_contributor(self, res):
+        '''
+        json_data = json.loads(res.body)
+        print(json_data)
+        '''
+    
+    def parse_repo_dependencies(self, res):
+        soup = BeautifulSoup(res.body, 'html.parser')
+        repo_data = RepoUpdate()
+        repo_data['path'] = res.meta['path']
+        repo_data['target'] = 'dependencies'
+        repo_data['dependencies'] = 0
+        for tag in soup.select('.Box .Counter'):
+            repo_data['dependencies'] = max(repo_data['dependencies'], int(tag.text.replace(',', '')))
+        yield repo_data
