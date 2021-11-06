@@ -39,7 +39,7 @@ class GithubSpider(scrapy.Spider):
         user_item = User()
         user_item['github_id'] = github_id
         user_item['followers'] = user_json['followers']
-        user_item['following'] = user_json['following']
+        user_item['followings'] = user_json['following']
         user_item['total_repos'] = user_json['public_repos']
         user_item['total_commits'] = 0
         user_item['total_PRs'] = 0
@@ -215,8 +215,8 @@ class GithubSpider(scrapy.Spider):
         repo_data['stargazers_count'] = json_data['stargazers_count']
         repo_data['forks_count'] = json_data['forks_count']
         repo_data['watchers_count'] = None if not 'subscribers_count' in json_data else json_data['subscribers_count']
-        repo_data['create_date'] = json_data['created_at']
-        repo_data['update_date'] = json_data['updated_at']
+        repo_data['create_date'] = datetime.fromisoformat(json_data['created_at'][:-1])
+        repo_data['update_date'] = datetime.fromisoformat(json_data['updated_at'][:-1])
         repo_data['language'] = json_data['language']
         repo_data['proj_short_desc'] = json_data['description']
         repo_data['license'] = None if json_data['license'] is None else json_data['license']['name']
@@ -334,11 +334,11 @@ class GithubSpider(scrapy.Spider):
         commit_data['sha'] = json_data['sha']
         committer = json_data['committer']
         commit_data['committer_github'] = None if committer is None else committer['login']
-        commit_data['committer_date'] = json_data['commit']['committer']['date']
+        commit_data['committer_date'] = datetime.fromisoformat(json_data['commit']['committer']['date'][:-1])
         commit_data['committer'] = json_data['commit']['committer']['email']
         author = json_data['author']
         commit_data['author_github'] = None if author is None else author['login']
-        commit_data['author_date'] = json_data['commit']['author']['date']
+        commit_data['author_date'] = datetime.fromisoformat(json_data['commit']['author']['date'][:-1])
         commit_data['author'] = json_data['commit']['author']['email']
         commit_data['additions'] = json_data['stats']['additions']
         commit_data['deletions'] = json_data['stats']['deletions']

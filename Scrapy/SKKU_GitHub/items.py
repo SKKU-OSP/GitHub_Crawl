@@ -4,7 +4,7 @@ class User(scrapy.Item) :
     github_id = scrapy.Field()
     stars = scrapy.Field()
     followers = scrapy.Field()
-    following = scrapy.Field()
+    followings = scrapy.Field()
     total_repos = scrapy.Field()
     total_commits = scrapy.Field()
     total_PRs = scrapy.Field()
@@ -42,7 +42,7 @@ class Repo(scrapy.Item):
     target = scrapy.Field()
     stargazers_count = scrapy.Field()   # API
     forks_count = scrapy.Field()        # API
-    watchers_count = scrapy.Field()           # API
+    watchers_count = scrapy.Field()     # API
     create_date = scrapy.Field()        # API
     update_date = scrapy.Field()        # API
     language = scrapy.Field()           # API
@@ -51,7 +51,7 @@ class Repo(scrapy.Item):
     release_ver = scrapy.Field()        # Main Page
     release_count = scrapy.Field()      # Main Page
     dependencies = scrapy.Field()
-    contributors_count = scrapy.Field()       # Main Page
+    contributors_count = scrapy.Field() # Main Page
     readme = scrapy.Field()             # Main Page
     commits_count = scrapy.Field()      # Main Page
     prs_count = scrapy.Field()          # PR Page

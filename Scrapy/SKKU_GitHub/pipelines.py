@@ -47,6 +47,7 @@ class SkkuGithubPipeline:
                 self.wait.pop(item['github_id'])
                 insert = True
                 data = prev
+                del data['request_cnt']
         elif type(item) == Repo:
             self.wait[item['path']] = item
         elif type(item) == RepoUpdate:
@@ -59,6 +60,9 @@ class SkkuGithubPipeline:
                 insert = True
                 data = self.wait[item['path']]
                 self.wait.pop(item['path'])
+                del data['request_cnt']
+                del data['path']
+                del data['target']
         elif type(item) == UserPeriod:
             insert = True
             data = item
@@ -71,64 +75,44 @@ class SkkuGithubPipeline:
         
         if insert:
             if type(data) == User:
-                insert_sql = 'INSERT IGNORE INTO github_crawl.github_overview('
-                insert_sql+= 'github_id, stars, followers, followings, total_repos, '
-                insert_sql+= 'total_commits, total_PRs, total_issues, achievements, highlights) '
-                insert_sql+= 'VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
-                insert_data = (
-                    data['github_id'], data['stars'], data['followers'], data['following'], 
-                    data['total_repos'], data['total_commits'], data['total_PRs'], 
-                    data['total_issues'], data['achievements'], data['highlights']
-                    )
+                table_name = 'github_overview'
+                key_col = ['github_id']
+                data_col = list(set(data.keys()) - set(key_col))
             if type(data) == UserPeriod:
-                insert_sql = 'INSERT IGNORE INTO github_stats_yymm('
-                insert_sql+= 'github_id, start_yymm, end_yymm, stars, num_of_cr_repos, '
-                insert_sql+= 'num_of_co_repos, num_of_commits, num_of_PRs, num_of_issues) '
-                insert_sql+= 'VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)'
-                insert_data = (
-                    data['github_id'], data['start_yymm'], data['end_yymm'], data['stars'], 
-                    data['num_of_cr_repos'], data['num_of_co_repos'], data['num_of_commits'],
-                    data['num_of_PRs'], data['num_of_issues']
-                )
+                table_name = 'github_stats_yymm'
+                key_col = ['github_id', 'start_yymm', 'end_yymm']
+                data_col = list(set(data.keys()) - set(key_col))
             if type(data) == Repo:
-                insert_sql = 'INSERT IGNORE INTO github_repo_stats('
-                insert_sql+= 'github_id, repo_name, stargazers_count, '
-                insert_sql+= 'forks_count, commits_count, '
-                insert_sql+= 'prs_count, open_issue_count, close_issue_count, '
-                insert_sql+= 'watchers_count, dependencies, language, '
-                insert_sql+= 'create_date, update_date, contributors_count, '
-                insert_sql+= 'release_ver, release_count, license, readme, '
-                insert_sql+= 'proj_short_desc) VALUES(%s, %s, %s, %s, %s, %s, %s, '
-                insert_sql+= '%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
-                insert_data = (
-                    data['github_id'], data['repo_name'], data['stargazers_count'],
-                    data['forks_count'], data['commits_count'], data['prs_count'], 
-                    data['open_issue_count'], data['close_issue_count'], data['watchers_count'], 
-                    data['dependencies'], data['language'], data['create_date'], data['update_date'], 
-                    data['contributors_count'], data['release_ver'], data['release_count'], 
-                    data['license'], data['readme'], data['proj_short_desc']
-                )
+                table_name = 'github_repo_stats'
+                key_col = ['github_id', 'repo_name']
+                data_col = list(set(data.keys()) - set(key_col))
             if type(data) == RepoContribute:
-                insert_sql = 'INSERT IGNORE INTO github_repo_contributor('
-                insert_sql+= 'github_id, owner_id, repo_name) VALUES(%s, %s, %s)'
-                insert_data = (data['github_id'], data['owner_id'], data['repo_name'])
+                table_name = 'github_repo_contributor'
+                key_col = ['github_id', 'owner_id', 'repo_name']
+                data_col = list(set(data.keys()) - set(key_col))
             if type(data) == RepoCommit:
-                insert_sql = 'INSERT IGNORE INTO github_repo_commits('
-                insert_sql+= 'github_id, repo_name, sha, committer, committer_date, committer_github, '
-                insert_sql+= 'author, author_date, author_github, additions, deletions) VALUES('
-                insert_sql+= '%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
-                insert_data = (
-                    data['github_id'], data['repo_name'], data['sha'], data['committer'],
-                    data['committer_date'], data['committer_github'], data['author'], 
-                    data['author_date'], data['author_github'], data['additions'], data['deletions'])
-                
-            #print(data)
+                table_name = 'github_repo_commits'
+                key_col = ['github_id', 'repo_name', 'sha']
+                data_col = list(set(data.keys()) - set(key_col))
+            
+            select_sql = f'SELECT * FROM {table_name} WHERE {" AND ".join([f"{x} = %s" for x in key_col])}'
+            select_data = [data[x] for x in key_col]
+            update_sql = f'UPDATE {table_name} SET {", ".join([f"{x} = %s" for x in data_col])} WHERE {" AND ".join([f"{x} = %s" for x in key_col])}'
+            update_data = [data[x] for x in data_col + key_col]
+            insert_sql = f'INSERT INTO {table_name}({", ".join(key_col + data_col)}) '
+            insert_sql+= f'VALUES({", ".join(["%s"]*len(data))})'
+            insert_data = [data[x] for x in key_col + data_col]
             try:
-                self.cursor.execute(insert_sql, insert_data)
+                if self.cursor.execute(select_sql, select_data) == 0:
+                    self.cursor.execute(insert_sql, insert_data)
+                elif len(update_data) != len(key_col):
+                    self.cursor.execute(update_sql, update_data)
                 self.crawlDB.commit()
             except:
-                print(insert_sql)
-                print(insert_data)
+                print(self.cursor.mogrify(select_sql, select_data))
+                print(self.cursor.mogrify(insert_sql, insert_data))
+                if len(update_data) != 0:
+                    print(self.cursor.mogrify(update_sql, update_data))
+                print('\n')
                 sys.exit(1)
-
         return item
