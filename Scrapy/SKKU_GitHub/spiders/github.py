@@ -275,11 +275,6 @@ class GithubSpider(scrapy.Spider):
             self.parse_repo_commit, {'path': repo_data['path'], 'page': 1})
         
         yield scrapy.Request(
-            f'{HTML_URL}/{repo_data["path"]}/graphs/contributors-data',
-            self.parse_repo_contributor, headers={'accept': 'application/json'},
-            meta={'path': repo_data['path']}
-        )
-        yield scrapy.Request(
             f'{HTML_URL}/{repo_data["path"]}/network/dependencies',
             self.parse_repo_dependencies,
             meta={'path': repo_data['path']}
@@ -333,22 +328,22 @@ class GithubSpider(scrapy.Spider):
         commit_data['repo_name'] = res.meta['path'].split('/')[1]
         commit_data['sha'] = json_data['sha']
         committer = json_data['committer']
-        commit_data['committer_github'] = None if committer is None else committer['login']
+        if committer is None or 'login' not in committer:
+            commit_data['committer_github'] = None
+        else:
+            commit_data['committer_github'] = committer['login']
         commit_data['committer_date'] = datetime.fromisoformat(json_data['commit']['committer']['date'][:-1])
         commit_data['committer'] = json_data['commit']['committer']['email']
         author = json_data['author']
-        commit_data['author_github'] = None if author is None else author['login']
+        if author is None or 'login' not in author:
+            commit_data['author_github'] = None
+        else:
+            commit_data['author_github'] = author['login']
         commit_data['author_date'] = datetime.fromisoformat(json_data['commit']['author']['date'][:-1])
         commit_data['author'] = json_data['commit']['author']['email']
         commit_data['additions'] = json_data['stats']['additions']
         commit_data['deletions'] = json_data['stats']['deletions']
         yield commit_data
-
-    def parse_repo_contributor(self, res):
-        '''
-        json_data = json.loads(res.body)
-        print(json_data)
-        '''
     
     def parse_repo_dependencies(self, res):
         soup = BeautifulSoup(res.body, 'html.parser')
