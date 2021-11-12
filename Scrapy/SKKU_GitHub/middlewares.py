@@ -43,6 +43,7 @@ class TokenRetryMiddleware(RetryMiddleware):
         if request.meta.get('dont_retry', False):
             return response
         elif response.status == 429:
+            spider.logger.log(logging.INFO, f'HTML Request Pause {request.url} {response.headers}')
             self.crawler.engine.pause()
             sleep(5)
             self.crawler.engine.unpause()
