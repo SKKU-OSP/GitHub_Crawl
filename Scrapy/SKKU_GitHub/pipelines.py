@@ -25,6 +25,7 @@ class SkkuGithubPipeline:
             print('ERROR: DB connection failed')
             sys.exit(1)
         self.wait = {}
+        self.lost = {}
 
     def process_item(self, item, spider):
         insert = False
@@ -50,19 +51,36 @@ class SkkuGithubPipeline:
                 del data['request_cnt']
         elif type(item) == Repo:
             self.wait[item['path']] = item
+            if item['path'] in self.lost:
+                item = self.lost[item['path']]
+                if item['target'] == 'main_page':
+                    self.wait[item['path']].update(item)
+                else:
+                    self.wait[item['path']].update(item)
+                    self.wait[item['path']]['request_cnt'] -= 1
+                if self.wait[item['path']]['request_cnt'] == 0:
+                    insert = True
+                    data = self.wait[item['path']]
+                    self.wait.pop(item['path'])
+                    del data['request_cnt']
+                    del data['path']
+                    del data['target']
         elif type(item) == RepoUpdate:
-            if item['target'] == 'main_page':
-                self.wait[item['path']].update(item)
+            if self.wait[item['path']] is None:
+                self.lost[item['path']] = item
             else:
-                self.wait[item['path']].update(item)
-                self.wait[item['path']]['request_cnt'] -= 1
-            if self.wait[item['path']]['request_cnt'] == 0:
-                insert = True
-                data = self.wait[item['path']]
-                self.wait.pop(item['path'])
-                del data['request_cnt']
-                del data['path']
-                del data['target']
+                if item['target'] == 'main_page':
+                    self.wait[item['path']].update(item)
+                else:
+                    self.wait[item['path']].update(item)
+                    self.wait[item['path']]['request_cnt'] -= 1
+                if self.wait[item['path']]['request_cnt'] == 0:
+                    insert = True
+                    data = self.wait[item['path']]
+                    self.wait.pop(item['path'])
+                    del data['request_cnt']
+                    del data['path']
+                    del data['target']
         elif type(item) == UserPeriod:
             insert = True
             data = item

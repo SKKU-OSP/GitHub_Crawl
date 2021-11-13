@@ -29,7 +29,9 @@ class GithubSpider(scrapy.Spider):
         req = scrapy.Request(
                 f'{API_URL}/{endpoint}?page={page}&per_page={per_page}',
                 callback,
-                meta=metadata)
+                meta=metadata,
+                dont_filter=True
+                )
         
         return req
 
@@ -156,13 +158,13 @@ class GithubSpider(scrapy.Spider):
             contribute['github_id'] = github_id
             contribute['owner_id'], contribute['repo_name'] = repo.split('/')
             yield contribute
-            yield self.api_get(f'repos/{repo}', self.parse_repo)
+            yield self.api_get(f'repos/{repo}', self.parse_repo, metadata={'from': github_id})
         for repo in contributed_repo :
             contribute = RepoContribute()
             contribute['github_id'] = github_id
             contribute['owner_id'], contribute['repo_name'] = repo.split('/')
             yield contribute
-            yield self.api_get(f'repos/{repo}', self.parse_repo)
+            yield self.api_get(f'repos/{repo}', self.parse_repo, metadata={'from': github_id})
 
     def parse_user_page(self, res):
         soup = BeautifulSoup(res.body, 'html.parser')
@@ -225,7 +227,8 @@ class GithubSpider(scrapy.Spider):
         yield scrapy.Request(
             f'{HTML_URL}/{github_id}/{repo_name}',
             self.parse_repo_page,
-            meta={'github_id': github_id, 'repo_name': repo_name}
+            meta={'github_id': github_id, 'repo_name': repo_name, 'from': res.meta['from']},
+            dont_filter=True
         )
 
     def parse_repo_page(self, res):
@@ -272,7 +275,8 @@ class GithubSpider(scrapy.Spider):
         )
         yield self.api_get(
             f'repos/{github_id}/{repo_name}/commits',
-            self.parse_repo_commit, {'path': repo_data['path'], 'page': 1})
+            self.parse_repo_commit, {'path': repo_data['path'], 'page': 1, 'from': res.meta['from']}
+        )
         
         yield scrapy.Request(
             f'{HTML_URL}/{repo_data["path"]}/network/dependencies',
@@ -305,11 +309,18 @@ class GithubSpider(scrapy.Spider):
         json_data = json.loads(res.body)
         path = res.meta['path']
         for commits in json_data:
-            yield self.api_get(
-                f'repos/{path}/commits/{commits["sha"]}',
-                self.parse_repo_commit_edits,
-                {'path': res.meta['path']}
-            )
+            committer = commits['committer']
+            if committer is not None and 'login' in committer :
+                committer = committer['login']
+            author = commits['author']
+            if author is not None and 'login' in author :
+                author = author['login']
+            if author == res.meta['from'] or author == res.meta['from']:
+                yield self.api_get(
+                    f'repos/{path}/commits/{commits["sha"]}',
+                    self.parse_repo_commit_edits,
+                    {'path': res.meta['path']}
+                )
         
         if len(json_data) == 100 :
             metadata = res.meta
