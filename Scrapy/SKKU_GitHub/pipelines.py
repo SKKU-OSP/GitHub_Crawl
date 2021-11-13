@@ -66,7 +66,7 @@ class SkkuGithubPipeline:
                     del data['path']
                     del data['target']
         elif type(item) == RepoUpdate:
-            if self.wait[item['path']] is None:
+            if item['path'] not in self.wait:
                 self.lost[item['path']] = item
             else:
                 if item['target'] == 'main_page':
