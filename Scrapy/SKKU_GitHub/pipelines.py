@@ -52,27 +52,37 @@ class SkkuGithubPipeline:
         elif type(item) == Repo:
             self.wait[item['path']] = item
             if item['path'] in self.lost:
-                item = self.lost[item['path']]
-                if item['target'] == 'main_page':
-                    self.wait[item['path']].update(item)
-                else:
-                    self.wait[item['path']].update(item)
-                    self.wait[item['path']]['request_cnt'] -= 1
-                if self.wait[item['path']]['request_cnt'] == 0:
-                    insert = True
-                    data = self.wait[item['path']]
-                    self.wait.pop(item['path'])
-                    del data['request_cnt']
-                    del data['path']
-                    del data['target']
+                for prev_item in self.lost[item['path']]:
+                    if prev_item['target'] == 'main_page':
+                        self.wait[prev_item['path']].update(prev_item)
+                    else:
+                        self.wait[prev_item['path']].update(prev_item)
+                        self.wait[prev_item['path']]['request_cnt'] -= 1
+                    if self.wait[prev_item['path']]['request_cnt'] == 0:
+                        insert = True
+                        data = self.wait[prev_item['path']]
+                        self.wait.pop(prev_item['path'])
+                        del data['request_cnt']
+                        del data['path']
+                        del data['target']
+                del self.lost[item['path']]
         elif type(item) == RepoUpdate:
             if item['path'] not in self.wait:
-                self.lost[item['path']] = item
+                if item['path'] not in self.lost:
+                    self.lost[item['path']] = [item]
+                else:
+                    self.lost[item['path']].append(item)
             else:
                 if item['target'] == 'main_page':
+                    if 'request_cnt' in self.wait[item['path']]:
+                        self.wait[item['path']]['request_cnt'] += item['request_cnt']
+                        del item['request_cnt']
                     self.wait[item['path']].update(item)
+
                 else:
                     self.wait[item['path']].update(item)
+                    if 'request_cnt' not in self.wait[item['path']]:
+                        self.wait[item['path']]['request_cnt'] = 0
                     self.wait[item['path']]['request_cnt'] -= 1
                 if self.wait[item['path']]['request_cnt'] == 0:
                     insert = True
