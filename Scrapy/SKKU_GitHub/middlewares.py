@@ -43,7 +43,7 @@ class TokenRetryMiddleware(RetryMiddleware):
         if request.meta.get('dont_retry', False):
             return response
         elif response.status == 429:
-            spider.logger.log(logging.INFO, f'HTML Request Pause {request.url}')
+            spider.logger.log(logging.DEBUG, f'HTML Request Pause {request.url}')
             self.crawler.engine.pause()
             sleep(5)
             self.crawler.engine.unpause()
@@ -68,11 +68,11 @@ class TokenRetryMiddleware(RetryMiddleware):
                 reset_time = datetime.fromtimestamp(reset_time)
                 wait_time = reset_time - datetime.now()
                 if wait_time > timedelta(seconds=1):
-                    print(f'Reset Time {reset_time}')
-                    print(f'Wait Time {wait_time.seconds}s')
+                    spider.logger.log(logging.INFO, f'API Quota Exhausted, Enter Sleep mode(Reset Time: {reset_time} / Wait Time: {wait_time.seconds})')
                     self.crawler.engine.pause()
                     sleep(wait_time.seconds)
                     self.crawler.engine.unpause()
+                    spider.logger.log(logging.INFO, f'Wake up from Sleep mode')
                 self.remain_token.append(next_token)
             spider.logger.log(logging.INFO, f'Change token to {self.remain_token[0]} from {now_token}')
             request.headers['Authorization'] = f'token {self.remain_token[0]}'
