@@ -47,7 +47,7 @@ class GithubSpider(scrapy.Spider):
         user_item['total_PRs'] = 0
         user_item['total_issues'] = 0
         user_item['stars'] = 0
-        user_item['request_cnt'] = 1 + math.ceil(user_json['public_repos'] / 100)
+        user_item['request_cnt'] = 1 + max(math.ceil(user_json['public_repos'] / 100), 1)
 
         created_date = user_json['created_at'][:7]
         updated_date = user_json['updated_at'][:7]
