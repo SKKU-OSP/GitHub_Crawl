@@ -174,7 +174,7 @@ class GithubSpider(scrapy.Spider):
                         else :
                             owned_repo.add('/'.join(repo))
                         for issue_tag in issue_repo.select('li'):
-                            if issue_tag.select_one('a > span').text is None:
+                            if issue_tag.select_one('a > span') is None:
                                 continue
                             issue = Issue()
                             issue['github_id'] = github_id
@@ -199,16 +199,13 @@ class GithubSpider(scrapy.Spider):
                         else :
                             owned_repo.add('/'.join(repo))
                         for pr_tag in pr_repo.select('li'):
-                            if pr_tag.select_one('a > span').text is None:
+                            if pr_tag.select_one('a > span') is None:
                                 continue
                             pr = PullRequest()
                             pr['github_id'] = github_id
                             pr['owner_id'] = repo[0]
                             pr['repo_name'] = repo[1]
-                            try:
-                                pr['title'] = pr_tag.select_one('a > span').text
-                            except Exception as e:
-                                print(pr_tag)
+                            pr['title'] = pr_tag.select_one('a > span').text
                             pr['number'] = pr_tag.select_one('a')['href']
                             pr['number'] = pr['number'][pr['number'].rfind('/') + 1:]
                             date = pr_tag.select_one('time').text.strip()
