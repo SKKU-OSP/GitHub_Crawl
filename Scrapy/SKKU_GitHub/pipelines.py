@@ -7,10 +7,16 @@
 # useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
 import sys, pymysql
+import regex as re
 from .items import *
 from .configure import *
 
 class SkkuGithubPipeline:
+    def deEmoji(self, raw_string):
+        if raw_string is None:
+            return None
+        return self.emoji_pattern.sub(r'', raw_string)
+
     def __init__(self) -> None:
         try :
             self.crawlDB = pymysql.connect(
@@ -26,6 +32,7 @@ class SkkuGithubPipeline:
             sys.exit(1)
         self.wait = {}
         self.lost = {}
+        self.emoji_pattern = re.compile("["u"\U00010000-\U0010FFFF""]+", flags=re.UNICODE)
 
     def process_item(self, item, spider):
         insert = False
@@ -64,6 +71,7 @@ class SkkuGithubPipeline:
                 data_col = list(set(data.keys()) - set(key_col))
             if type(data) == Repo:
                 table_name = 'github_repo_stats'
+                data['proj_short_desc'] = self.deEmoji(data['proj_short_desc'])
                 del(data['path'])
                 key_col = ['github_id', 'repo_name']
                 data_col = list(set(data.keys()) - set(key_col))
