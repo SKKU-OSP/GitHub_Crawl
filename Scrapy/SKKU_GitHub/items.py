@@ -61,7 +61,8 @@ class Repo(scrapy.Item):
 
 class RepoUpdate(scrapy.Item):
     path = scrapy.Field()
-    target = scrapy.Field()
+    github_id = scrapy.Field()
+    repo_name = scrapy.Field()
     release_ver = scrapy.Field()
     release_count = scrapy.Field()
     contributors_count = scrapy.Field()

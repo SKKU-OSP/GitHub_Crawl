@@ -275,9 +275,9 @@ class GithubSpider(scrapy.Spider):
         github_id = res.meta['github_id']
         repo_name = res.meta['repo_name']
         repo_data = RepoUpdate()
-        repo_data['path'] = f'{github_id}/{repo_name}'
-        repo_data['target'] = 'main_page'
-        release_tag = soup.select_one(f'a[href="/{github_id}/{repo_name}/releases"]')
+        repo_path = f'{github_id}/{repo_name}'
+        repo_data['path'] = repo_path
+        release_tag = soup.select_one(f'a[href="/{repo_path}/releases"]')
         if release_tag is None :
             repo_data['release_ver'] = None
             repo_data['release_count'] = 0
@@ -299,35 +299,33 @@ class GithubSpider(scrapy.Spider):
         
         repo_data['readme'] = not soup.select_one('div#readme') is None
         repo_data['commits_count'] = int(soup.select_one('div.Box-header strong').text.replace(',',''))
-        repo_data['request_cnt'] = 3
         yield repo_data
 
         yield scrapy.Request(
-            f'{HTML_URL}/{repo_data["path"]}/pulls',
+            f'{HTML_URL}/{repo_path}/pulls',
             self.parse_repo_pr,
-            meta={'path': repo_data['path']}
+            meta={'path': repo_path}
         )
         yield scrapy.Request(
-            f'{HTML_URL}/{repo_data["path"]}/issues',
+            f'{HTML_URL}/{repo_path}/issues',
             self.parse_repo_issue,
-            meta={'path': repo_data['path']}
+            meta={'path': repo_path}
         )
         yield self.api_get(
             f'repos/{github_id}/{repo_name}/commits',
-            self.parse_repo_commit, {'path': repo_data['path'], 'page': 1, 'from': res.meta['from']}
+            self.parse_repo_commit, {'path': repo_path, 'page': 1, 'from': res.meta['from']}
         )
         
         yield scrapy.Request(
-            f'{HTML_URL}/{repo_data["path"]}/network/dependencies',
+            f'{HTML_URL}/{repo_path}/network/dependencies',
             self.parse_repo_dependencies,
-            meta={'path': repo_data['path']}
+            meta={'path': repo_path}
         )
     
     def parse_repo_pr(self, res):
         soup = BeautifulSoup(res.body, 'html.parser')
         repo_data = RepoUpdate()
         repo_data['path'] = res.meta['path']
-        repo_data['target'] = 'pr'
         prs_cnt = soup.select_one('a[data-ga-click="Pull Requests, Table state, Open"]').parent
         prs_cnt = [x.text.strip().replace(',','').split() for x in prs_cnt.select('a')]
         repo_data['prs_count'] = int(prs_cnt[0][0]) + int(prs_cnt[1][0])
@@ -337,7 +335,6 @@ class GithubSpider(scrapy.Spider):
         soup = BeautifulSoup(res.body, 'html.parser')
         repo_data = RepoUpdate()
         repo_data['path'] = res.meta['path']
-        repo_data['target'] = 'issue'
         issue_cnt = soup.select_one('a[data-ga-click="Issues, Table state, Open"]').parent
         issue_cnt = [x.text.strip().replace(',','').split() for x in issue_cnt.select('a')]
         repo_data['open_issue_count'] = int(issue_cnt[0][0])
@@ -399,7 +396,6 @@ class GithubSpider(scrapy.Spider):
         soup = BeautifulSoup(res.body, 'html.parser')
         repo_data = RepoUpdate()
         repo_data['path'] = res.meta['path']
-        repo_data['target'] = 'dependencies'
         repo_data['dependencies'] = 0
         for tag in soup.select('.Box .Counter'):
             repo_data['dependencies'] = max(repo_data['dependencies'], int(tag.text.replace(',', '')))

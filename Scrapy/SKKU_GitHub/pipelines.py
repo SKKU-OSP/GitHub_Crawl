@@ -49,61 +49,7 @@ class SkkuGithubPipeline:
                 insert = True
                 data = prev
                 del data['request_cnt']
-        elif type(item) == Repo:
-            self.wait[item['path']] = item
-            if item['path'] in self.lost:
-                for prev_item in self.lost[item['path']]:
-                    if prev_item['target'] == 'main_page':
-                        self.wait[prev_item['path']].update(prev_item)
-                    else:
-                        self.wait[prev_item['path']].update(prev_item)
-                        self.wait[prev_item['path']]['request_cnt'] -= 1
-                    if self.wait[prev_item['path']]['request_cnt'] == 0:
-                        insert = True
-                        data = self.wait[prev_item['path']]
-                        self.wait.pop(prev_item['path'])
-                        del data['request_cnt']
-                        del data['path']
-                        del data['target']
-                del self.lost[item['path']]
-        elif type(item) == RepoUpdate:
-            if item['path'] not in self.wait:
-                if item['path'] not in self.lost:
-                    self.lost[item['path']] = [item]
-                else:
-                    self.lost[item['path']].append(item)
-            else:
-                if item['target'] == 'main_page':
-                    if 'request_cnt' in self.wait[item['path']]:
-                        self.wait[item['path']]['request_cnt'] += item['request_cnt']
-                        del item['request_cnt']
-                    self.wait[item['path']].update(item)
-
-                else:
-                    self.wait[item['path']].update(item)
-                    if 'request_cnt' not in self.wait[item['path']]:
-                        self.wait[item['path']]['request_cnt'] = 0
-                    self.wait[item['path']]['request_cnt'] -= 1
-                if self.wait[item['path']]['request_cnt'] == 0:
-                    insert = True
-                    data = self.wait[item['path']]
-                    self.wait.pop(item['path'])
-                    del data['request_cnt']
-                    del data['path']
-                    del data['target']
-        elif type(item) == UserPeriod:
-            insert = True
-            data = item
-        elif type(item) == RepoContribute:
-            insert = True
-            data = item
-        elif type(item) == RepoCommit:
-            insert = True
-            data = item
-        elif type(item) == Issue:
-            insert = True
-            data = item
-        elif type(item) == PullRequest:
+        else:
             insert = True
             data = item
         
@@ -118,6 +64,14 @@ class SkkuGithubPipeline:
                 data_col = list(set(data.keys()) - set(key_col))
             if type(data) == Repo:
                 table_name = 'github_repo_stats'
+                del(data['path'])
+                key_col = ['github_id', 'repo_name']
+                data_col = list(set(data.keys()) - set(key_col))
+            if type(data) == RepoUpdate:
+                table_name = 'github_repo_stats'
+                data['github_id'] = data['path'].split('/')[0]
+                data['repo_name'] = data['path'].split('/')[1]
+                del(data['path'])
                 key_col = ['github_id', 'repo_name']
                 data_col = list(set(data.keys()) - set(key_col))
             if type(data) == RepoContribute:
