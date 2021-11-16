@@ -150,7 +150,7 @@ class GithubSpider(scrapy.Spider):
                         else :
                             owned_repo.add('/'.join(repo))
                         for issue_tag in issue_repo.select('li'):
-                            issue = PullRequest()
+                            issue = Issue()
                             issue['github_id'] = github_id
                             issue['owner_id'] = repo[0]
                             issue['repo_name'] = repo[1]
@@ -178,7 +178,7 @@ class GithubSpider(scrapy.Spider):
                             pr['owner_id'] = repo[0]
                             pr['repo_name'] = repo[1]
                             pr['title'] = pr_tag.select_one('a > span').text
-                            pr['number'] = issue_tag.select_one('a')['href']
+                            pr['number'] = pr_tag.select_one('a')['href']
                             pr['number'] = pr['number'][pr['number'].rfind('/') + 1:]
                             date = pr_tag.select_one('time').text.strip()
                             date = datetime.strptime(date, '%b %d')
