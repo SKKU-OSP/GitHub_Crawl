@@ -12,10 +12,10 @@ from .items import *
 from .configure import *
 
 class SkkuGithubPipeline:
-    def deEmoji(self, raw_string):
-        if raw_string is None:
-            return None
-        return self.emoji_pattern.sub(r'', raw_string)
+    def deEmoji(self, data):
+        for key in data:
+            if type(data[key]) == str:
+                data[key] = self.emoji_pattern.sub(r'', data[key])
 
     def __init__(self) -> None:
         try :
@@ -61,6 +61,7 @@ class SkkuGithubPipeline:
             data = item
         
         if insert:
+            self.deEmoji(data)
             if type(data) == User:
                 table_name = 'github_overview'
                 key_col = ['github_id']
@@ -71,7 +72,6 @@ class SkkuGithubPipeline:
                 data_col = list(set(data.keys()) - set(key_col))
             if type(data) == Repo:
                 table_name = 'github_repo_stats'
-                data['proj_short_desc'] = self.deEmoji(data['proj_short_desc'])
                 del(data['path'])
                 key_col = ['github_id', 'repo_name']
                 data_col = list(set(data.keys()) - set(key_col))
