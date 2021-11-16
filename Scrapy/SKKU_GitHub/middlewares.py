@@ -3,101 +3,83 @@
 # See documentation in:
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
+from time import sleep
+
 from scrapy import signals
 
 # useful for handling different item types with a single interface
 from itemadapter import is_item, ItemAdapter
+from scrapy.downloadermiddlewares.defaultheaders import DefaultHeadersMiddleware
+from scrapy.downloadermiddlewares.retry import RetryMiddleware
+from scrapy.utils.response import response_status_message
+from datetime import datetime, timedelta
+from .configure import OAUTH_TOKEN
+from queue import PriorityQueue
+import logging
 
+class TokenRetryMiddleware(RetryMiddleware):
 
-class SkkuGithubSpiderMiddleware:
-    # Not all methods need to be defined. If a method is not defined,
-    # scrapy acts as if the spider middleware does not modify the
-    # passed objects.
-
-    @classmethod
-    def from_crawler(cls, crawler):
-        # This method is used by Scrapy to create your spiders.
-        s = cls()
-        crawler.signals.connect(s.spider_opened, signal=signals.spider_opened)
-        return s
-
-    def process_spider_input(self, response, spider):
-        # Called for each response that goes through the spider
-        # middleware and into the spider.
-
-        # Should return None or raise an exception.
-        return None
-
-    def process_spider_output(self, response, result, spider):
-        # Called with the results returned from the Spider, after
-        # it has processed the response.
-
-        # Must return an iterable of Request, or item objects.
-        for i in result:
-            yield i
-
-    def process_spider_exception(self, response, exception, spider):
-        # Called when a spider or process_spider_input() method
-        # (from other spider middleware) raises an exception.
-
-        # Should return either None or an iterable of Request or item objects.
-        pass
-
-    def process_start_requests(self, start_requests, spider):
-        # Called with the start requests of the spider, and works
-        # similarly to the process_spider_output() method, except
-        # that it doesn’t have a response associated.
-
-        # Must return only requests (not items).
-        for r in start_requests:
-            yield r
-
-    def spider_opened(self, spider):
-        spider.logger.info('Spider opened: %s' % spider.name)
-
-
-class SkkuGithubDownloaderMiddleware:
-    # Not all methods need to be defined. If a method is not defined,
-    # scrapy acts as if the downloader middleware does not modify the
-    # passed objects.
+    def __init__(self, crawler):
+        super(TokenRetryMiddleware, self).__init__(crawler.settings)
+        self.crawler = crawler
+        self.remain_token = OAUTH_TOKEN
+        self.exhausted_token = PriorityQueue()
 
     @classmethod
     def from_crawler(cls, crawler):
-        # This method is used by Scrapy to create your spiders.
-        s = cls()
-        crawler.signals.connect(s.spider_opened, signal=signals.spider_opened)
-        return s
-
+        return cls(crawler)
+        
     def process_request(self, request, spider):
         # Called for each request that goes through the downloader
         # middleware.
-
-        # Must either:
-        # - return None: continue processing this request
-        # - or return a Response object
-        # - or return a Request object
-        # - or raise IgnoreRequest: process_exception() methods of
-        #   installed downloader middleware will be called
+        raw_url = request.url
+        raw_url = raw_url[raw_url.find('://') + 3:]
+        raw_url = raw_url[:raw_url.find('/')]
+        if raw_url == 'api.github.com':
+            request.headers['Authorization'] = f'token {self.remain_token[0]}'
         return None
 
     def process_response(self, request, response, spider):
-        # Called with the response returned from the downloader.
+        if request.meta.get('dont_retry', False):
+            return response
+        elif response.status == 429:
+            spider.logger.log(logging.INFO, f'HTML Request Pause {request.url}')
+            self.crawler.engine.pause()
+            sleep(5)
+            self.crawler.engine.unpause()
+            reason = response_status_message(response.status)
+            return self._retry(request, reason, spider) or response
+        elif response.status == 403:
+            req_hds = {}
+            res_hds = {}
+            for key in response.headers:
+                res_hds[key.decode()] = response.headers[key].decode()
+            for key in request.headers:
+                req_hds[key.decode()] = request.headers[key].decode()
 
-        # Must either;
-        # - return a Response object
-        # - return a Request object
-        # - or raise IgnoreRequest
-        return response
-
-    def process_exception(self, request, exception, spider):
-        # Called when a download handler or a process_request()
-        # (from other downloader middleware) raises an exception.
-
-        # Must either:
-        # - return None: continue processing this exception
-        # - return a Response object: stops process_exception() chain
-        # - return a Request object: stops process_exception() chain
-        pass
-
-    def spider_opened(self, spider):
-        spider.logger.info('Spider opened: %s' % spider.name)
+            now_token = req_hds["Authorization"].split()[1]
+            reset_time = int(res_hds['X-Ratelimit-Reset'])
+            self.exhausted_token.put((reset_time, now_token))
+            if now_token in self.remain_token:
+                self.remain_token.remove(now_token)
+            
+            if len(self.remain_token) == 0:
+                reset_time, next_token = self.exhausted_token.get()
+                reset_time = datetime.fromtimestamp(reset_time)
+                wait_time = reset_time - datetime.now()
+                if wait_time > timedelta(seconds=1):
+                    print(f'Reset Time {reset_time}')
+                    print(f'Wait Time {wait_time.seconds}s')
+                    self.crawler.engine.pause()
+                    sleep(wait_time.seconds)
+                    self.crawler.engine.unpause()
+                self.remain_token.append(next_token)
+            spider.logger.log(logging.INFO, f'Change token to {self.remain_token[0]} from {now_token}')
+            request.headers['Authorization'] = f'token {self.remain_token[0]}'
+            
+            reason = response_status_message(response.status)
+            return self._retry(request, reason, spider) or response
+        elif response.status in self.retry_http_codes:
+            reason = response_status_message(response.status)
+            return self._retry(request, reason, spider) or response
+        return response 
