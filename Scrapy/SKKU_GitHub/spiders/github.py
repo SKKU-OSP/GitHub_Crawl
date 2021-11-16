@@ -117,8 +117,32 @@ class GithubSpider(scrapy.Spider):
                         user_update['total_PRs'] += 1
                     if 'Created an issue' in summary :
                         user_update['total_issues'] += 1
+                        issue = Issue()
+                        repo = event.select_one('h4 > a')['href'][1:].split('/')
+                        issue['github_id'] = github_id
+                        issue['owner_id'] = repo[0]
+                        issue['repo_name'] = repo[1]
+                        issue['title'] = event.select_one('h3 > a').text
+                        issue['number'] = event.select_one('h3 > a')['href']
+                        issue['number'] = issue['number'][issue['number'].rfind('/') + 1:]
+                        date = event.select_one('time').text.strip()
+                        date = datetime.strptime(date, '%b %d')
+                        issue['date'] = date.replace(year=int(res.meta['from'][:4]))
+                        yield issue
                     if 'Created a pull request' in summary :
                         user_update['total_PRs'] += 1
+                        pr = PullRequest()
+                        repo = event.select_one('h4 > a')['href'][1:].split('/')
+                        pr['github_id'] = github_id
+                        pr['owner_id'] = repo[0]
+                        pr['repo_name'] = repo[1]
+                        pr['title'] = event.select_one('h3 > a').text
+                        pr['number'] = event.select_one('h3 > a')['href']
+                        pr['number'] = pr['number'][pr['number'].rfind('/') + 1:]
+                        date = event.select_one('time').text.strip()
+                        date = datetime.strptime(date, '%b %d')
+                        pr['date'] = date.replace(year=int(res.meta['from'][:4]))
+                        yield pr
                 continue
             summary = summary.text.strip().split()
             if summary[0] == 'Created':
@@ -150,6 +174,8 @@ class GithubSpider(scrapy.Spider):
                         else :
                             owned_repo.add('/'.join(repo))
                         for issue_tag in issue_repo.select('li'):
+                            if issue_tag.select_one('a > span').text is None:
+                                continue
                             issue = Issue()
                             issue['github_id'] = github_id
                             issue['owner_id'] = repo[0]
@@ -173,11 +199,16 @@ class GithubSpider(scrapy.Spider):
                         else :
                             owned_repo.add('/'.join(repo))
                         for pr_tag in pr_repo.select('li'):
+                            if pr_tag.select_one('a > span').text is None:
+                                continue
                             pr = PullRequest()
                             pr['github_id'] = github_id
                             pr['owner_id'] = repo[0]
                             pr['repo_name'] = repo[1]
-                            pr['title'] = pr_tag.select_one('a > span').text
+                            try:
+                                pr['title'] = pr_tag.select_one('a > span').text
+                            except Exception as e:
+                                print(pr_tag)
                             pr['number'] = pr_tag.select_one('a')['href']
                             pr['number'] = pr['number'][pr['number'].rfind('/') + 1:]
                             date = pr_tag.select_one('time').text.strip()
