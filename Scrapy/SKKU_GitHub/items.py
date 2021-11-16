@@ -90,3 +90,19 @@ class RepoCommit(scrapy.Item):
     author_github = scrapy.Field()
     additions = scrapy.Field()
     deletions = scrapy.Field()
+
+class Issue(scrapy.Item):
+    github_id = scrapy.Field()
+    owner_id = scrapy.Field()
+    repo_name = scrapy.Field()
+    number = scrapy.Field()
+    title = scrapy.Field()
+    date = scrapy.Field()
+
+class PullRequest(scrapy.Item):
+    github_id = scrapy.Field()
+    owner_id = scrapy.Field()
+    repo_name = scrapy.Field()
+    number = scrapy.Field()
+    title = scrapy.Field()
+    date = scrapy.Field()

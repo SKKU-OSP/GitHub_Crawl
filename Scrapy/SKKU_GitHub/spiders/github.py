@@ -104,6 +104,7 @@ class GithubSpider(scrapy.Spider):
 
         for event in soup.select('.TimelineItem-body'):
             summary = event.select_one('summary')
+            body = event.select('details > div > details')
             if summary == None :
                 summary = event.select_one('h4')
                 if summary == None:
@@ -116,7 +117,7 @@ class GithubSpider(scrapy.Spider):
                         user_update['total_PRs'] += 1
                     if 'Created an issue' in summary :
                         user_update['total_issues'] += 1
-                    if 'Created an pull request' in summary :
+                    if 'Created a pull request' in summary :
                         user_update['total_PRs'] += 1
                 continue
             summary = summary.text.strip().split()
@@ -141,10 +142,48 @@ class GithubSpider(scrapy.Spider):
                 if 'issue' in summary or 'issues' in summary :
                     issue_list = event.select('li')
                     user_update['total_issues'] += len(issue_list)
+                    for issue_repo in body:
+                        repo = issue_repo.select_one('summary span').text.strip()
+                        repo = repo.split('/')
+                        if repo[0] != github_id :
+                            contributed_repo.add('/'.join(repo))
+                        else :
+                            owned_repo.add('/'.join(repo))
+                        for issue_tag in issue_repo.select('li'):
+                            issue = PullRequest()
+                            issue['github_id'] = github_id
+                            issue['owner_id'] = repo[0]
+                            issue['repo_name'] = repo[1]
+                            issue['title'] = issue_tag.select_one('a > span').text
+                            issue['number'] = issue_tag.select_one('a')['href']
+                            issue['number'] = issue['number'][issue['number'].rfind('/') + 1:]
+                            date = issue_tag.select_one('time').text.strip()
+                            date = datetime.strptime(date, '%b %d')
+                            issue['date'] = date.replace(year=int(res.meta['from'][:4]))
+                            yield issue
                 # Open Pull Requests
                 elif 'request' in summary or 'requests' in summary :
                     pr_list = event.select('li')
                     user_update['total_PRs'] += len(pr_list)
+                    for pr_repo in body:
+                        repo = pr_repo.select_one('summary span').text.strip()
+                        repo = repo.split('/')
+                        if repo[0] != github_id :
+                            contributed_repo.add('/'.join(repo))
+                        else :
+                            owned_repo.add('/'.join(repo))
+                        for pr_tag in pr_repo.select('li'):
+                            pr = PullRequest()
+                            pr['github_id'] = github_id
+                            pr['owner_id'] = repo[0]
+                            pr['repo_name'] = repo[1]
+                            pr['title'] = pr_tag.select_one('a > span').text
+                            pr['number'] = issue_tag.select_one('a')['href']
+                            pr['number'] = pr['number'][pr['number'].rfind('/') + 1:]
+                            date = pr_tag.select_one('time').text.strip()
+                            date = datetime.strptime(date, '%b %d')
+                            pr['date'] = date.replace(year=int(res.meta['from'][:4]))
+                            yield pr
         yield user_update
 
         user_period['num_of_co_repos'] = len(contributed_repo)
