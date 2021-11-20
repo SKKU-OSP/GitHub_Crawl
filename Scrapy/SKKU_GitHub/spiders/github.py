@@ -164,8 +164,7 @@ class GithubSpider(scrapy.Spider):
             elif summary[0] == 'Opened' :
                 # Open Issues
                 if 'issue' in summary or 'issues' in summary :
-                    issue_list = event.select('li')
-                    user_update['total_issues'] += len(issue_list)
+                    user_update['total_issues'] += int(summary[1])
                     for issue_repo in body:
                         repo = issue_repo.select_one('summary span').text.strip()
                         repo = repo.split('/')
@@ -189,8 +188,7 @@ class GithubSpider(scrapy.Spider):
                             yield issue
                 # Open Pull Requests
                 elif 'request' in summary or 'requests' in summary :
-                    pr_list = event.select('li')
-                    user_update['total_PRs'] += len(pr_list)
+                    user_update['total_PRs'] += int(summary[1])
                     for pr_repo in body:
                         repo = pr_repo.select_one('summary span').text.strip()
                         repo = repo.split('/')
