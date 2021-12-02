@@ -129,9 +129,9 @@ class GithubSpider(scrapy.Spider):
                         date = datetime.strptime(date, '%b %d')
                         issue['date'] = date.replace(year=int(res.meta['from'][:4]))
                         if repo[0] != github_id :
-                            contributed_repo.add(repo)
+                            contributed_repo.add('/'.join(repo))
                         else :
-                            owned_repo.add(repo)
+                            owned_repo.add('/'.join(repo))
                         yield issue
                     if 'Created a pull request' in summary :
                         user_update['total_PRs'] += 1
@@ -147,9 +147,9 @@ class GithubSpider(scrapy.Spider):
                         date = datetime.strptime(date, '%b %d')
                         pr['date'] = date.replace(year=int(res.meta['from'][:4]))
                         if repo[0] != github_id :
-                            contributed_repo.add(repo)
+                            contributed_repo.add('/'.join(repo))
                         else :
-                            owned_repo.add(repo)
+                            owned_repo.add('/'.join(repo))
                         yield pr
                 continue
             summary = summary.text.strip().split()
