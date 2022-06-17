@@ -425,6 +425,16 @@ class GithubSpider(scrapy.Spider):
         commit_data['additions'] = json_data['stats']['additions']
         commit_data['deletions'] = json_data['stats']['deletions']
         yield commit_data
+        for file in json_data['files']:
+            commit_file = RepoCommitFile()
+            commit_file['github_id'] = res.meta['path'].split('/')[0]
+            commit_file['repo_name'] = res.meta['path'].split('/')[1]
+            commit_file['sha'] = json_data['sha']
+            commit_file['filename'] = file['filename']
+            commit_file['status'] = file['status']
+            commit_file['additions'] = file['additions']
+            commit_file['deletions'] = file['deletions']
+            yield commit_file
     
     def parse_repo_dependencies(self, res):
         soup = BeautifulSoup(res.body, 'html.parser')

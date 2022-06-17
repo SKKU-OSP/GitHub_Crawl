@@ -92,6 +92,15 @@ class RepoCommit(scrapy.Item):
     additions = scrapy.Field()
     deletions = scrapy.Field()
 
+class RepoCommitFile(scrapy.Item):
+    github_id = scrapy.Field()
+    repo_name = scrapy.Field()
+    sha = scrapy.Field()
+    filename = scrapy.Field()
+    status = scrapy.Field()
+    additions = scrapy.Field()
+    deletions = scrapy.Field()
+
 class Issue(scrapy.Item):
     github_id = scrapy.Field()
     owner_id = scrapy.Field()
