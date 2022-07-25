@@ -82,6 +82,18 @@ class GithubSpider(scrapy.Spider):
             self.parse_user_page,
             meta={'github_id':github_id}
         )
+        
+        yield self.api_get(
+            f'users/{github_id}/following',
+            self.parse_user_following,
+            metadata={'github_id': github_id, 'page':1}
+        )
+        
+        yield self.api_get(
+            f'users/{github_id}/starred',
+            self.parse_user_starred,
+            metadata={'github_id': github_id, 'page':1}
+        )
 
     def parse_user_update(self, res):
         github_id = res.meta['github_id']
@@ -118,7 +130,7 @@ class GithubSpider(scrapy.Spider):
                     if 'Created an issue' in summary :
                         user_update['total_issues'] += 1
                         issue = Issue()
-                        repo = event.select_one('h4 > a')['href'][1:].split('/')
+                        repo = tuple(event.select_one('h4 > a')['href'][1:].split('/'))
                         issue['github_id'] = github_id
                         issue['owner_id'] = repo[0]
                         issue['repo_name'] = repo[1]
@@ -136,7 +148,7 @@ class GithubSpider(scrapy.Spider):
                     if 'Created a pull request' in summary :
                         user_update['total_PRs'] += 1
                         pr = PullRequest()
-                        repo = event.select_one('h4 > a')['href'][1:].split('/')
+                        repo = tuple(event.select_one('h4 > a')['href'][1:].split('/'))
                         pr['github_id'] = github_id
                         pr['owner_id'] = repo[0]
                         pr['repo_name'] = repo[1]
@@ -161,8 +173,8 @@ class GithubSpider(scrapy.Spider):
                         detail = commit.select('a')
                         commit_cnt = int(detail[1].text.strip().split()[0])
                         user_update['total_commits']  += commit_cnt
-                        repo = detail[0].text
-                        if repo.split('/')[0] != github_id :
+                        repo = tuple(detail[0].text.split('/'))
+                        if repo[0] != github_id :
                             contributed_repo.add(repo)
                         else :
                             owned_repo.add(repo)
@@ -175,11 +187,11 @@ class GithubSpider(scrapy.Spider):
                     user_update['total_issues'] += int(summary[1])
                     for issue_repo in body:
                         repo = issue_repo.select_one('summary span').text.strip()
-                        repo = repo.split('/')
+                        repo = tuple(repo.split('/'))
                         if repo[0] != github_id :
-                            contributed_repo.add('/'.join(repo))
+                            contributed_repo.add(repo)
                         else :
-                            owned_repo.add('/'.join(repo))
+                            owned_repo.add(repo)
                         for issue_tag in issue_repo.select('li'):
                             if issue_tag.select_one('a > span') is None:
                                 continue
@@ -199,11 +211,11 @@ class GithubSpider(scrapy.Spider):
                     user_update['total_PRs'] += int(summary[1])
                     for pr_repo in body:
                         repo = pr_repo.select_one('summary span').text.strip()
-                        repo = repo.split('/')
+                        repo = tuple(repo.split('/'))
                         if repo[0] != github_id :
-                            contributed_repo.add('/'.join(repo))
+                            contributed_repo.add(repo)
                         else :
-                            owned_repo.add('/'.join(repo))
+                            owned_repo.add(repo)
                         for pr_tag in pr_repo.select('li'):
                             if pr_tag.select_one('a > span') is None:
                                 continue
@@ -229,15 +241,15 @@ class GithubSpider(scrapy.Spider):
         for repo in owned_repo :
             contribute = RepoContribute()
             contribute['github_id'] = github_id
-            contribute['owner_id'], contribute['repo_name'] = repo.split('/')
+            contribute['owner_id'], contribute['repo_name'] = repo
             yield contribute
-            yield self.api_get(f'repos/{repo}', self.parse_repo, metadata={'from': github_id})
+            yield self.api_get(f'repos/{"/".join(repo)}', self.parse_repo, metadata={'from': github_id})
         for repo in contributed_repo :
             contribute = RepoContribute()
             contribute['github_id'] = github_id
-            contribute['owner_id'], contribute['repo_name'] = repo.split('/')
+            contribute['owner_id'], contribute['repo_name'] = repo
             yield contribute
-            yield self.api_get(f'repos/{repo}', self.parse_repo, metadata={'from': github_id})
+            yield self.api_get(f'repos/{"/".join(repo)}', self.parse_repo, metadata={'from': github_id})
 
     def parse_user_page(self, res):
         soup = BeautifulSoup(res.body, 'html.parser')
@@ -257,6 +269,47 @@ class GithubSpider(scrapy.Spider):
                     [tag.text.strip() for tag in info.select('li')]
                 )
         yield user_data
+    
+    def parse_user_following(self, res):
+        json_data = json.loads(res.body)
+        github_id = res.meta['github_id']
+        for following in json_data:
+            user_following = UserFollowing(
+                github_id=github_id,
+                following_id=following['login']
+            )
+            yield user_following
+        
+        if len(json_data) == 100 :
+            metadata = res.meta
+            metadata['page'] += 1
+            yield self.api_get(
+                f'users/{github_id}/following',
+                self.parse_user_following,
+                metadata,
+                page=metadata['page']
+            )
+    
+    def parse_user_starred(self, res):
+        json_data = json.loads(res.body)
+        github_id = res.meta['github_id']
+        for starred in json_data:
+            user_starred = UserStarred(
+                github_id=github_id,
+                starred_repo_owner=starred['owner']['login'],
+                starred_repo_name=starred['name']
+            )
+            yield user_starred
+        
+        if len(json_data) == 100 :
+            metadata = res.meta
+            metadata['page'] += 1
+            yield self.api_get(
+                f'users/{github_id}/starred',
+                self.parse_user_starred,
+                metadata,
+                page=metadata['page']
+            )
     
     def parse_user_repo(self, res):
         json_data = json.loads(res.body)

@@ -66,6 +66,14 @@ class SkkuGithubPipeline:
                 table_name = 'github_overview'
                 key_col = ['github_id']
                 data_col = list(set(data.keys()) - set(key_col))
+            if type(data) == UserFollowing:
+                table_name = 'github_user_following'
+                key_col = ['github_id', 'following_id']
+                data_col = list(set(data.keys()) - set(key_col))
+            if type(data) == UserStarred:
+                table_name = 'github_user_starred'
+                key_col = ['github_id', 'starred_repo_owner', 'starred_repo_name']
+                data_col = list(set(data.keys()) - set(key_col))
             if type(data) == UserPeriod:
                 table_name = 'github_stats_yymm'
                 key_col = ['github_id', 'start_yymm', 'end_yymm']
@@ -89,6 +97,10 @@ class SkkuGithubPipeline:
             if type(data) == RepoCommit:
                 table_name = 'github_repo_commits'
                 key_col = ['github_id', 'repo_name', 'sha']
+                data_col = list(set(data.keys()) - set(key_col))
+            if type(data) == RepoCommitFile:
+                table_name = 'github_repo_commit_files'
+                key_col = ['github_id', 'repo_name', 'sha', 'filename']
                 data_col = list(set(data.keys()) - set(key_col))
             if type(data) == Issue:
                 table_name = 'github_issues'

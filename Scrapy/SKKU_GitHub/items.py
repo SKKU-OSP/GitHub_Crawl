@@ -35,6 +35,15 @@ class UserPeriod(scrapy.Item):
     num_of_PRs = scrapy.Field()
     num_of_issues = scrapy.Field()
 
+class UserFollowing(scrapy.Item):
+    github_id = scrapy.Field()
+    following_id = scrapy.Field()
+    
+class UserStarred(scrapy.Item):
+    github_id = scrapy.Field()
+    starred_repo_owner = scrapy.Field()
+    starred_repo_name = scrapy.Field()
+
 class Repo(scrapy.Item):
     github_id = scrapy.Field()
     repo_name = scrapy.Field()
