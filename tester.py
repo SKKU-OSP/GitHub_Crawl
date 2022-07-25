@@ -1,4 +1,4 @@
-from configure import OAUTH_TOKEN
+from Scrapy.SKKU_GitHub.configure import OAUTH_TOKEN
 from api import GitHub_API
 
 if __name__ == '__main__' :
