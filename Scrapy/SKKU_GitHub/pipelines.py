@@ -104,11 +104,11 @@ class SkkuGithubPipeline:
                 data_col = list(set(data.keys()) - set(key_col))
             if type(data) == Issue:
                 table_name = 'github_issues'
-                key_col = ['github_id', 'repo_name', 'number']
+                key_col = ['owner_id', 'repo_name', 'number']
                 data_col = list(set(data.keys()) - set(key_col))
             if type(data) == PullRequest:
                 table_name = 'github_pulls'
-                key_col = ['github_id', 'repo_name', 'number']
+                key_col = ['owner_id', 'repo_name', 'number']
                 data_col = list(set(data.keys()) - set(key_col))
             
             select_sql = f'SELECT * FROM {table_name} WHERE {" AND ".join([f"{x} = %s" for x in key_col])}'
